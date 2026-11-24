@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Scratch training runs (the runs worth keeping are copied into results/ and models/)
+runs/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store

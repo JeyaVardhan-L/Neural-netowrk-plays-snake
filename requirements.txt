@@ -1,0 +1,9 @@
+# The network, the game and the training loop only need NumPy.
+numpy>=2.0
+
+# Charts for the training curves and the GIF of the agent playing.
+matplotlib>=3.8
+pillow>=10.0
+
+# Tests.
+pytest>=8.0
