@@ -1,0 +1,18 @@
+@title  Analysis: baselines and the 256-input table
+@group  Scripts
+@order  13
+
+== """Look inside the trained agent
+Two analyses: baselines on the same boards, and the complete input space.
+
+== from __future__ import annotations
+`FOOD_PATTERNS` lists the 8 possible food inputs: left, right or neither, combined with up, down or neither, minus "neither and neither", since the food is never on the head.
+
+== def all_states(
+8 danger patterns times 4 headings times 8 food patterns: the 256 inputs the game can produce. A test checks that random play never produces anything outside this list.
+
+== def main(
+Baselines first, all on the same seeded boards.
+
+== # Count which inputs the trained snake actually sees.
+Replay 100 greedy games and count each input pattern. Then run all 256 through the network in one batch and compare its choice with the rule's, both per pattern and weighted by how often each pattern is met. The assertion fails loudly if the game ever produced an input outside the 256.

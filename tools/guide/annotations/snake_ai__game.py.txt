@@ -1,0 +1,65 @@
+@title  The game: board, rules and the 11 inputs
+@group  The library
+@order  1
+
+== """Snake, with no graphics.
+The module docstring says the one thing to remember: the agent never sees the grid, only 11 numbers, and answers with one of 3 relative moves. Everything else in the file serves those two facts.
+
+== from __future__ import annotations
+`from __future__ import annotations` lets the type hints use the modern `tuple[int, int] | None` syntax on older Pythons, because hints are then stored as strings and never evaluated.
+
+== # Directions as (dx, dy).
+Directions are offsets added to the head. **y grows downwards**, so UP is `(0, -1)`. The list is in clockwise order, which turns "turn right" into "move one place along the list" (see `turn`).
+
+== # The three actions.
+Actions are **relative** to the heading. Reversing is impossible by construction, and "danger right, so do not turn right" means the same thing whichever way the snake faces.
+
+== # Rewards. Everything
+The entire learning signal. No reward for moving towards the food: I wanted to see whether the agent could find that from +10 alone. It can.
+
+== STATE_LABELS = [
+The names of the 11 inputs, in the order `get_state` produces them. The guide, `play.py` and the analysis all read this list so the labels can never drift out of sync with the code.
+
+== def turn(
+`turn` maps a relative action to a new absolute direction with modular arithmetic on the clockwise list: right is index + 1, left is index - 1, and `% 4` wraps around. An unknown action raises instead of silently doing something.
+
+== class SnakeGame:
+The class follows the standard reinforcement-learning shape: `reset()` returns the first state, `step(action)` returns `(state, reward, done, info)`.
+
+The docstring explains `info["terminal"]`, which separates a real end (a crash) from a time-out. That distinction matters in the Bellman target (chapter 8).
+
+== def __init__(
+The game owns its random generator, seeded, so a seed reproduces every food position. `idle_limit` sets the time-out: `idle_limit * len(snake)` steps without eating.
+
+== def reset(
+A fresh game: length 3 in the middle, heading right. `self.body` is a set with the same cells as the deque, because "is this cell part of the body?" is asked several times per step and a set answers in constant time. `end_reason` is filled in at the exact line where a game ends.
+
+== def _place_food(
+Food goes on a uniformly random free cell. Listing all free cells costs up to 400 checks, which is nothing next to a training step, and it can never loop forever the way "pick a random cell until it is free" can on a nearly full board. No free cell means the snake fills the board: a win.
+
+== def is_wall(
+Off the board in any direction.
+
+== def is_danger(
+"Would the head die here next step?" A wall, or a body cell **except the tail**, because the tail moves away on the same tick. The food can never be on the tail, so the tail always moves.
+
+== def step(
+One tick. First turn, then compute the new head. `steps_since_food` drives the time-out.
+
+== eats = new_head == self.food
+The order that matters: **pop the tail before the collision check**. Otherwise moving into the cell the tail is leaving would count as a crash, and the agent would learn to fear a perfectly safe move. Chapter 2's figure lets you switch this bug on.
+
+== if self.is_wall(new_head) or new_head in self.body:
+A crash: reward -10, `terminal=True`. The tail is put back first so the final frame shows the whole snake.
+
+== self.snake.appendleft(new_head)
+The move is legal: add the new head. If it ate, the tail was never popped, so the snake is one cell longer. A full board ends the game as a win.
+
+== if self.steps_since_food > self.idle_limit * len(self.snake):
+The time-out. Reward 0 and `terminal=False`: the game could have continued, so the learner should still value the future from here. Treating it as a crash would teach the agent that ordinary positions are deadly.
+
+== def get_state(
+The 11 inputs: three danger checks on the cells ahead, right and left of the head; the heading as a one-hot of four; and four food comparisons. Note `fy < hy` is "food up", because y grows downwards. With no food (a won game) the food inputs are all 0.
+
+== def render_text(
+A plain-text board, used by a test and handy in a debugger.

@@ -1,0 +1,21 @@
+@title  The ablation study
+@group  Scripts
+@order  14
+
+== """Run the ablation study
+One setting changed at a time, several seeds each, in parallel.
+
+== from __future__ import annotations
+`ProcessPoolExecutor` runs training runs in separate processes, so they use separate CPU cores. Threads would not help: Python's GIL lets only one thread run Python code at a time.
+
+== EXPERIMENTS = {
+Each group compares variants of one setting. "No replay" is a memory of 1 with batches of 1: every transition is used once, immediately. The baseline appears in several groups but is trained only once per seed.
+
+== def run_one(
+One training run plus a 100-game evaluation on boards seeded per run. Returns plain data so it can cross the process boundary.
+
+== def main(
+Longest jobs first, so the pool does not finish with one 2,000-game run on a single core.
+
+== out = Path(args.out)
+Per variant: a CSV of the per-game score averaged over seeds, and a summary entry with the mean and standard deviation over seeds. The standard deviation is the important number: it says how big a difference must be before it means anything.

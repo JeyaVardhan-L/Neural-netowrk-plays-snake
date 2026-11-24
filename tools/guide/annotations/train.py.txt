@@ -1,0 +1,15 @@
+@title  Command line: train a model
+@group  Scripts
+@order  10
+
+== """Train the Snake agent from scratch.
+Usage examples. Each run writes its log, weights and summary into its own folder.
+
+== from __future__ import annotations
+The script only parses arguments and writes files; the learning lives in the library.
+
+== def main(
+Every field of `Config` becomes a flag automatically (`--hidden`, `--gamma`, `--target-sync`, ...), so adding a knob to the config is enough to expose it.
+
+== print(f"training for
+Train, optionally copy the weights to `--save-model`, then evaluate with 100 greedy games and write `summary.json` with the config, timing and evaluation.

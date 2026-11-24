@@ -1,0 +1,27 @@
+@title  The README charts
+@group  Scripts
+@order  15
+
+== """Draw the README charts from the saved results.
+Every chart is drawn from files in `results/`, never from numbers typed by hand.
+
+== from __future__ import annotations
+The same colour tokens as the guide: paper, ink, one blue accent for the thing that matters, grey for comparisons.
+
+== def moving_average(
+A trailing average, so the first points average over fewer games instead of being dropped.
+
+== def training_curve(
+Score bars per game, a 20-game average in blue, and a band where epsilon is above 0.5.
+
+== def ablations(
+One row per variant: the mean over 5 seeds as a dot, plus and minus one standard deviation as a line. The default is blue.
+
+== def learning_speed(
+Learning curves for the replay and target-network variants. End labels are pushed apart so they never overlap, and line styles differ so the greys can be told apart.
+
+== def baselines(
+Random, rule and network on the same boards.
+
+== def main(
+Writes everything to `assets/`.

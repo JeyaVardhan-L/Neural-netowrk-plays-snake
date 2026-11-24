@@ -1,0 +1,21 @@
+@title  Command line: watch it play, or save a GIF
+@group  Scripts
+@order  12
+
+== """Watch a trained network play Snake
+Two outputs from the same loop: an ANSI terminal view, or a GIF drawn with Pillow. Both show the 11 inputs and 3 Q-values next to the board on every frame.
+
+== from __future__ import annotations
+ANSI escape codes colour the terminal view; no extra libraries are needed.
+
+== def terminal_frame(
+Builds one frame as a string. `\033[H` in `watch` moves the cursor home so each frame overwrites the last instead of scrolling.
+
+== def watch(
+The viewing loop: predict, draw, step, sleep. Ctrl+C exits cleanly.
+
+== def save_gif(
+Draws each step with Pillow: the board on the left, the inputs and Q-value bars on the right. The last frame is held for a second so the crash is visible.
+
+== def main(
+`--random` swaps in an untrained network, which is a good way to see what learning changed.

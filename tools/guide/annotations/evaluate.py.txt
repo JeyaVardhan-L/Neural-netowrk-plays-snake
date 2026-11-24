@@ -1,0 +1,12 @@
+@title  Command line: measure a model
+@group  Scripts
+@order  11
+
+== """Measure a trained network
+Plays greedy games and prints statistics plus a text histogram. `--random` measures an untrained network for comparison.
+
+== from __future__ import annotations
+All the work is in `snake_ai.training.evaluate`.
+
+== def main(
+The median is printed with one decimal on purpose: an early version rounded 25.5 to "26", which I then repeated in a commit message.

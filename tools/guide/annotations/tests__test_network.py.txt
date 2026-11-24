@@ -1,0 +1,36 @@
+@title  Tests: the network and the gradient check
+@group  Tests
+@order  20
+
+== """The network: shapes, a numerical gradient check
+The most important test file in the project.
+
+== import numpy as np
+`loss_of` runs a forward pass and returns only the loss, which is all the numerical gradient needs.
+
+== def test_shapes(
+Shapes and the exact parameter count, 963.
+
+== def test_forward_matches_formula(
+The forward pass against the formula written out by hand.
+
+== def test_q_loss_only_touches_taken_action(
+Checks both the loss value and that only the taken action gets a gradient, with numbers small enough to verify in your head.
+
+== def test_gradient_check(
+For every single weight: nudge it by plus and minus 1e-6, measure the loss, and compare `(L+ - L-) / 2h` with what `backward` says. The biases are set to non-zero values first so their gradients are really tested. The relative error must be below 1e-6; it comes out around 1e-9.
+
+== def test_adam_fits_a_tiny_regression(
+An end-to-end check that forward, loss, backward and Adam together can drive the loss down: memorise 16 random targets.
+
+== def test_adam_first_step_is_lr_sized(
+With bias correction, Adam's first step is the learning rate times the sign of the gradient, whether the gradient is 0.5, -100 or 0.001.
+
+== def test_sgd_step(
+Plain gradient descent, checked by hand.
+
+== def test_copy_is_independent(
+The target network relies on this: changing the copy must not change the original.
+
+== def test_save_and_load(
+A saved model loads with the same predictions and the same metadata.

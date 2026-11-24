@@ -1,0 +1,30 @@
+@title  The training loop and evaluation
+@group  The library
+@order  4
+
+== """The training loop and the evaluation loop.
+Act, step, remember, learn: one gradient step per game step.
+
+== from __future__ import annotations
+`LOG_FIELDS` is the column order of `log.csv`.
+
+== def train(
+A fresh agent and game, both seeded with the same seed. The CSV log is opened up front and closed in a `finally`, so a run interrupted with Ctrl+C still leaves a readable log.
+
+== for g in range(games):
+The whole algorithm. Note what goes into memory: `info["terminal"]`, so time-outs are not treated as deaths.
+
+== record = max(record, game.score)
+One row per game: score, length in steps, epsilon, the mean loss of that game's updates, how it ended, the record so far and elapsed seconds.
+
+== if model_path is not None:
+The weights are saved with the config, seed and record as metadata.
+
+== def greedy_policy(
+Turns a network into a policy function. `evaluate` and `play_greedy` accept either a network or any state-to-action function, which is how the baselines are measured with exactly the same code.
+
+== def play_greedy(
+A generator: it yields the game after every step, so the caller can draw it, count states, or just run it to the end.
+
+== def evaluate(
+100 games with no exploration, on boards from a fixed seed, so different models and baselines see the same food positions. Returns summary statistics, how games ended, and every score.

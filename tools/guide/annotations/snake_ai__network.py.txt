@@ -1,0 +1,43 @@
+@title  The network: forward pass, loss, backprop and Adam
+@group  The library
+@order  2
+
+== """A two-layer neural network in plain NumPy
+The two lines of maths in the docstring are the whole network. The outputs have no activation because Q-values can be any real number.
+
+== from __future__ import annotations
+Only NumPy, plus `json` for the metadata stored next to the weights.
+
+== class QNetwork:
+**Initialisation.** He initialisation for the ReLU layer, standard deviation `sqrt(2 / fan_in)`, keeps activations about the same size through the layer; the 2 makes up for ReLU zeroing half its inputs. The linear output layer uses `sqrt(1 / fan_in)`. Biases start at 0; the random weights already make the units different.
+
+== def sizes(
+Shapes and parameter count. For 11, 64, 3 that is 704 + 64 + 192 + 3 = **963**. `params` returns the arrays themselves, not copies, so the optimiser can update them in place.
+
+== def forward(
+`x @ W1 + b1` computes all 64 weighted sums for every row of the batch at once; the bias broadcasts over rows. `np.maximum(0, z1)` is ReLU. The cache keeps `x` and `h`, exactly what `backward` needs.
+
+== def predict(
+Q-values only. Works for one state of shape (11,) or a batch of shape (n, 11), because `@` and broadcasting treat both the same way.
+
+== def backward(
+Backprop: each line is the chain rule for one line of `forward`, read bottom up.
+
+`dW2 = h.T @ dq`: a weight's gradient is what came in times the error that came out, summed over the batch. `dh = dq @ W2.T`: the error flows back through the same weights, transposed. `dz1 = dh * (h > 0)`: ReLU passes the gradient only where the unit was on. `dW1 = x.T @ dz1`: same pattern as the second layer.
+
+Every gradient has the shape of the thing it is the gradient of. `tests/test_network.py` checks all of them against finite differences.
+
+== def copy(
+`copy()` makes an independent network; `load_state` copies values **into** the existing arrays with `[...] =`. The target network depends on this being a copy: if it shared arrays with the online network, it would change on every update and stop doing its job.
+
+== def save(
+Weights in a `.npz` (a zip of NumPy arrays) plus the training config as a JSON string. `load` reads the layer sizes from the arrays, so any saved size loads without extra arguments.
+
+== def q_loss(
+Mean squared error **only on the action taken**. The other outputs get a zero gradient, because this transition tells us nothing about them. The `2 / n` is the derivative of the mean of squares; forgetting the 2 silently halves every gradient.
+
+== class Adam:
+Adam keeps a running mean of the gradient (`m`, momentum) and of its square (`v`, its scale) for every weight, and steps by `lr * m / sqrt(v)`, so every weight moves at roughly the learning rate whatever the size of its raw gradient. Dividing by `1 - beta^t` removes the bias from starting both averages at 0; on step 1 it makes the update exactly `lr * sign(g)`.
+
+== class SGD:
+Plain gradient descent, kept for the ablation study. On this small problem it scored as well as Adam.

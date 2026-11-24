@@ -1,0 +1,38 @@
+@title  The DQN agent: epsilon-greedy, replay memory, target network
+@group  The library
+@order  3
+
+== """The learner: a Deep Q-Network (DQN) agent.
+The three ideas that make up DQN, each a few lines below.
+
+== from __future__ import annotations
+The agent knows the game only through `N_ACTIONS` and `STATE_SIZE`.
+
+== @dataclass
+Every knob of a run in one place. `train.py` turns each field into a command-line flag automatically, and the config is saved with every model, so a result can always be traced back to its settings. `target_sync = 0` switches the target network off for the ablation study.
+
+== def epsilon_for_game(
+Linear decay per **game**, not per step, so a long game late in training does not burn through the schedule faster than a short early one.
+
+== class ReplayMemory:
+A ring buffer: five arrays allocated once at full size, a write position and a fill count. When full, `pos` wraps to 0 and overwrites the oldest transition. Nothing is ever appended or shifted.
+
+== def push(
+Write at `pos`, advance with `% capacity`, grow `size` until it reaches capacity.
+
+== def sample(
+A uniformly random batch, with replacement, by fancy indexing. Random batches break the correlation between consecutive steps.
+
+== class Agent:
+The online network, its target copy (or the same object when `target_sync` is 0), the optimiser and the memory. The memory gets its own seed derived from the agent's, so sampling is reproducible too.
+
+== def act(
+Epsilon-greedy: a random move with probability epsilon, otherwise the argmax of the Q-values.
+
+== def remember(
+Stores a transition. The flag stored is `terminal`, not `done`: a time-out ends the game but is not terminal.
+
+== def learn(
+One DQN update. Wait until the memory holds `learn_start` transitions, so early batches are not dominated by the first few steps.
+
+The target is the Bellman equation: `y = r + gamma * max Q_target(s', a')`, with the future multiplied by `1 - terminal` so a crash is worth exactly its reward. Then a normal supervised step: forward, `q_loss`, backward, Adam. Every `target_sync` updates the target network gets a copy of the current weights.

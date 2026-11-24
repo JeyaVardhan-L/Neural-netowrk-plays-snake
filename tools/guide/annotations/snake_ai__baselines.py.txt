@@ -1,0 +1,18 @@
+@title  Baselines: random moves and a hand-written rule
+@group  The library
+@order  5
+
+== """Two policies that are not learned
+A score means little without something to compare it to. The random policy is the floor; the rule is what a person would write from the same 11 inputs.
+
+== from __future__ import annotations
+Lookup tables from directions and actions to input positions, so the rule reads the state vector exactly as the network receives it.
+
+== def random_policy(
+Seeded, so the baseline is reproducible.
+
+== def heading(
+Recovers the absolute direction from the one-hot inputs 3 to 6.
+
+== def rule_policy(
+Among the moves whose danger input is 0, take the first one whose new direction points at the food; otherwise the first safe move; otherwise straight, since every move crashes anyway. It scores 27.45 on the evaluation boards; the network scores 26.43 and agrees with it on 93.6% of the moves it plays.
