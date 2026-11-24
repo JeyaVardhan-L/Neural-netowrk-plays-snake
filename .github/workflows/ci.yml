@@ -1,0 +1,26 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Tests (game, network, gradient check, agent, guide)
+        run: python -m pytest -q
+      - name: Guide is built from the current code
+        run: python tools/guide/build.py --check
+      - name: A short training run works end to end
+        run: python train.py --games 60 --eps-decay-games 40 --out runs/ci --eval-games 20
