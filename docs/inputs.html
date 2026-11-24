@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eleven numbers · Snake NN field guide</title>
+<meta name="description" content="The network never sees the board. It sees eleven 0s and 1s, and it answers with a move relative to its own head. Both choices shape everything that follows.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">03 &middot; Eleven numbers</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 03</span>
+<h2>Eleven numbers</h2>
+<p class="lede">The network never sees the board. It sees eleven 0s and 1s, and it answers with a move relative to its own head. Both choices shape everything that follows.</p>
+<div class="meta">Entry 03 &middot; snake_ai/game.py: get_state, turn</div>
+</header>
+<div class="prose measure">
+<h3>Why not give it the whole board?</h3>
+<p>The honest answer is size. A 20 &times; 20 board is 400 cells. Feed that to a network and it first has to learn what a wall is, what its own head is and which way it is facing, before it can learn anything about food. That needs a convolutional network and far more training. Hand-made <i>features</i> skip all of that: I compute the few facts that matter and hand them over directly.</p>
+<p>The cost is that the network can only be as good as those facts. That trade-off turns out to be the most important thing in this whole project, and chapter 14 comes back to it.</p>
+
+<h3>The eleven inputs</h3>
+<p><code>get_state()</code> returns these, in this order, each 0 or 1:</p>
+<table>
+<tr><th class="num">#</th><th>input</th><th>means</th></tr>
+<tr><td class="num">0&ndash;2</td><td>danger ahead, right, left</td><td>moving that way next step would crash</td></tr>
+<tr><td class="num">3&ndash;6</td><td>going right, down, left, up</td><td>the current heading; exactly one is 1</td></tr>
+<tr><td class="num">7&ndash;10</td><td>food left, right, up, down</td><td>which side of the head the food is on</td></tr>
+</table>
+<p>"Danger" means a wall or a body cell, but not the tail, for the reason in chapter 2: the tail will have moved by the time the head gets there. The heading is <i>one-hot</i>: four inputs with exactly one switched on. I could have used a single number 0 to 3, but then "up" (3) would look three times bigger than "down" (1) to the network, which is meaningless. One-hot gives each heading its own weight.</p>
+<p>The food inputs compare coordinates. Food up and to the left switches on both <code>food left</code> and <code>food up</code>. Food in the same column switches on neither left nor right.</p>
+</div>
+
+<figure class="fig" data-fig="inputs">
+<span class="fig-label">FIG_003</span>
+<div class="fig-body"></div>
+<figcaption><b>What the snake sees</b> Pick a position, steer, or click a cell to move the food, and watch the eleven inputs change. The dashed squares A, R and L are the only cells the danger inputs look at.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Relative moves</h3>
+<p>The network has three outputs: <b>straight</b>, <b>right</b> and <b>left</b>, all relative to where the head points. I chose that over the four absolute directions for three reasons:</p>
+<ul>
+<li>The fourth absolute direction is always suicide: reversing into your own neck. With relative moves it cannot even be chosen.</li>
+<li>The danger inputs are relative too (ahead, right, left), so "danger right, so do not turn right" is the same rule whichever way the snake faces. The network learns it once, not four times.</li>
+<li>Three outputs instead of four is a smaller problem.</li>
+</ul>
+<p>Turning is a lookup in a list of directions in clockwise order. Turning right is one step forward in the list, turning left is one step back, and <code>% 4</code> wraps around the end.</p>
+</div>
+
+<figure class="fig" data-fig="relative">
+<span class="fig-label">FIG_004</span>
+<div class="fig-body"></div>
+<figcaption><b>Relative to the head</b> Change the heading and see which absolute direction each move becomes, and which list index the code uses.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>How many different things can it see?</h3>
+<p>Eleven bits sounds like 2<sup>11</sup> = 2,048 possible inputs, but most cannot happen. The danger bits can be any of 2<sup>3</sup> = 8 patterns. Exactly one heading is on: 4 choices. The food is left, right or neither, and up, down or neither, but never on the head itself: 3 &times; 3 &minus; 1 = 8. That is 8 &times; 4 &times; 8 = <b>256</b> inputs in total, and <code>analyze.py</code> checks that the game never produces anything else.</p>
+<p>So this network is, in effect, learning a table with 256 rows and 3 columns. Keep that number in mind. It explains why the problem trains in seconds, why a network of 16 hidden units does as well as 256, and why the agent hits a ceiling.</p>
+
+<h3>What it cannot see</h3>
+<p>Only the three cells next to the head. It does not know how long it is, where its tail is, or whether the open area it is turning into is a dead end. A snake turning into a pocket of its own body gets no warning that it is a dead end: the danger inputs only report whether the very next cell is blocked. Every one of the 100 evaluation games ends with the snake trapped like that (chapter 14).</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Why hand-made features instead of the raw grid?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>With features, the network only has to learn the decision, not the perception. Eleven binary inputs make only 256 possible states, so a tiny two-layer network learns a good policy in a few hundred games on a CPU. The raw grid would need a CNN and much more training.</p><p>The price is a hard ceiling: the agent cannot see beyond one cell, so it cannot avoid trapping itself. If I wanted a better snake, the first thing I would change is the input, for example adding how much free space each move leads to, before touching the network.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="game.html">&larr; 02 &middot; Snake without a screen</a><a href="neuron.html">04 &middot; One neuron &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

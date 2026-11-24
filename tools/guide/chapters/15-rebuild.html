@@ -1,0 +1,70 @@
+title: Rebuild it from zero
+lede: The order I would build it in again, what to check at each step before moving on, and how to know you really understand it.
+meta: Entry 15 &middot; the whole repository
+hint: checklist
+---
+<div class="prose measure">
+<p>If I lost everything except this guide, this is how I would rebuild the project. Each step has a check that must pass before the next step starts. The order matters: every piece is tested on its own before it is combined with the others, so that when something goes wrong there is only one new place to look.</p>
+</div>
+
+<figure class="fig" data-fig="checklist">
+<span class="fig-label">FIG_022</span>
+<div class="fig-body"></div>
+<figcaption><b>Your progress</b> Tick a step when its check passes. The ticks are saved in your browser only.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>1. Environment (10 minutes)</h3>
+<pre>git clone https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake.git
+cd Neural-netowrk-plays-snake
+python3 -m venv .venv            # or: python3 -m venv --without-pip .venv, then get-pip.py
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest -q              # 42 passed</pre>
+
+<h3>2. The game, with no learning at all</h3>
+<p>Write <code>SnakeGame</code>: <code>reset</code>, <code>step</code>, <code>get_state</code>, <code>is_danger</code>, and the <code>turn</code> helper. Decide the coordinate system first (y down) and the direction order (clockwise). Then test before anything else: place a snake by hand and check every rule from chapter 2, especially the tail cell. Check the state vector for a snake at a wall, heading each way. If the game is wrong, nothing later can be right, and the network will not tell you: it will just learn the wrong game.</p>
+<p><b>Check:</b> the game tests pass, and a random policy averages about 0.2 apples, ending almost always at a wall.</p>
+
+<h3>3. The network, with no game at all</h3>
+<p>Write <code>QNetwork.forward</code>, <code>q_loss</code>, <code>backward</code> and <code>Adam</code>. Derive each line of <code>backward</code> on paper from the matching line of <code>forward</code> (chapter 6). Then write the gradient check before you trust any of it.</p>
+<p><b>Check:</b> the gradient check's relative error is below 1e-6 for every parameter (expect about 1e-9), and the network can memorise 16 random targets (loss falls below 1% of where it started).</p>
+
+<h3>4. The agent</h3>
+<p>Write the epsilon schedule, the ring-buffer memory, <code>act</code> and <code>learn</code>. The two tests that matter most: with one stored transition, Q(s, a) converges to <span class="math">r + &gamma; max Q(s&prime;)</span>; with a crash, it converges to &minus;10. Those two tests are the Bellman equation.</p>
+<p><b>Check:</b> the agent tests pass, including that the target network is a copy, not a reference.</p>
+
+<h3>5. Train</h3>
+<pre>python train.py --out runs/main
+python evaluate.py --model runs/main/model.npz
+python play.py --model runs/main/model.npz</pre>
+<p><b>Check:</b> in about 12 seconds the 20-game average passes 20 apples somewhere around game 160, and the greedy evaluation averages between 20 and 32. If it stays at zero, the usual suspects are, in order: the game's y direction, the food inputs, the <code>(1 &minus; terminal)</code> in the target, and the sign of the update.</p>
+
+<h3>6. Measure and explain</h3>
+<pre>python analyze.py         # baselines and the 256-input table
+python experiments.py     # about 5 minutes on 11 cores
+python make_charts.py</pre>
+<p><b>Check:</b> the network is within a couple of apples of the hand-written rule; &gamma; = 0 and 4 hidden units clearly fail; everything else lands between 25 and 31.</p>
+
+<h3>7. Explain it out loud</h3>
+<p>Go through the <a href="questions.html">questions page</a> without looking at the answers, and say each answer out loud. Then open the <a href="source.html">annotated source</a> and explain any block of code you land on. That is the real test: if you can explain why each line exists and what breaks without it, you understand the project.</p>
+
+<h3>The ideas, in one list</h3>
+<ul>
+<li>A neuron is a weighted sum plus a bias, through a nonlinearity. Without the nonlinearity, layers collapse into one linear map, which provably cannot steer this snake.</li>
+<li>A layer is a matrix multiply. Batches come free from the first dimension.</li>
+<li>Backprop is the chain rule applied to each line of the forward pass, last line first. Gradients have the shape of what they are gradients of. Verify with finite differences.</li>
+<li>Adam scales each weight's step by its recent gradient size. Bias correction fixes the zero start.</li>
+<li>Q(s, a) is the expected discounted return. The Bellman equation turns it into a regression target built from one real reward plus the network's own estimate.</li>
+<li>Terminal states have no future; truncated ones do.</li>
+<li>Epsilon-greedy trades exploring for exploiting. Evaluate with epsilon at zero.</li>
+<li>Replay breaks correlation and reuses data; a target network holds the target still.</li>
+<li>Compare against baselines and across seeds. One run is an anecdote.</li>
+<li>When every learner hits the same ceiling, the limit is in the inputs.</li>
+</ul>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">If you started this project again, what would you do differently?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>I would build the analysis tools earlier. The most useful results, that the network matches a simple rule and that every learner hits the same ceiling, came from baselines and from enumerating the 256 inputs, not from tuning. With those in place on day one, I would have known immediately that the next improvement had to come from the inputs, like adding the free space after each move. I would also run multiple seeds from the very first comparison, because single runs differ by several apples just from luck.</p></div></div>
+</div>
+</div>

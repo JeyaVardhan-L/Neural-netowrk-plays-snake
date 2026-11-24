@@ -1,0 +1,55 @@
+title: Explore, then exploit
+lede: An agent that always takes its best-known move never finds out whether another move is better. Epsilon-greedy is the simplest fix, and here it mattered less than I expected.
+meta: Entry 09 &middot; snake_ai/agent.py: act, epsilon_for_game
+hint: epsilon-greedy
+---
+<div class="prose measure">
+<h3>The dilemma</h3>
+<p>At the start, the network's Q-values are random. If the agent always picks the highest one, it plays the same arbitrary moves every time, and it only ever learns about those moves. This is the <b>exploration&ndash;exploitation trade-off</b>: <i>exploit</i> what you know to score now, or <i>explore</i> something else to find out whether it is better.</p>
+<p><b>Epsilon-greedy</b> handles it with one number. With probability <span class="math">&epsilon;</span>, pick a random move. Otherwise pick the move with the highest Q-value.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/agent.py</span><a class="srclink" href="source.html#snake_ai/agent.py@def act">Agent.act</a></div>
+<pre>def act(self, state, epsilon=0.0):
+    if self.rng.random() &lt; epsilon:
+        return int(self.rng.integers(N_ACTIONS))
+    return int(np.argmax(self.net.predict(state)))</pre>
+</div>
+
+<div class="prose measure">
+<p>A test checks both halves: with <span class="math">&epsilon; = 1</span>, 3,000 moves come out within 4 percentage points of a third each; with <span class="math">&epsilon; = 0</span>, the move is always the argmax.</p>
+
+<h3>A schedule</h3>
+<p>Early on there is nothing worth exploiting, so <span class="math">&epsilon;</span> should be high. Later the agent knows a lot, and random moves mostly just kill it. So <span class="math">&epsilon;</span> decays: it starts at 1.0 (all random), falls in a straight line to 0.01 over the first 150 games, then stays there. I decay per game rather than per step, so that a long game late in training does not burn through the schedule faster than a short one early on.</p>
+</div>
+
+<figure class="fig" data-fig="epsilon">
+<span class="fig-label">FIG_011</span>
+<div class="fig-body"></div>
+<figcaption><b>The schedule</b> Drag the decay length and the floor. The readout shows how often the snake moves at random at a few points, and the score I measured for the nearest schedule I actually trained.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Evaluation uses &epsilon; = 0</h3>
+<p>When measuring the agent, I turn exploration off. The 0.01 floor during training costs a little: on a game of 400 steps, about 4 moves are random, and one bad random move next to the body is enough to end a game. That is part of why the greedy evaluation (26.4) scores higher than the last 100 training games (23.5).</p>
+
+<h3>What the experiment showed</h3>
+<p>I trained four schedules, 5 seeds each. Here are the learning curves.</p>
+</div>
+
+<figure class="fig" data-fig="curves_epsilon">
+<span class="fig-label">FIG_012</span>
+<div class="fig-body"></div>
+<figcaption><b>Four schedules, real runs</b> Hover the chart to read values; switch lines on and off with the buttons. The table has the greedy evaluation for each, with one number per seed.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p>Two things stand out. First, each curve takes off roughly when its <span class="math">&epsilon;</span> gets small, because a mostly-random snake cannot eat many apples even if it has learned something. Second, and I did not expect this, even <i>no decay at all</i> (<span class="math">&epsilon;</span> = 0.01 from the first game) learned fine, scoring 26.6.</p>
+<p>My explanation is that the problem is small and death is cheap. There are only 256 possible inputs, and every crash quickly sends the agent back to the start with its Q-values changed by a &minus;10 target. The changing values alone push a greedy agent into new situations. In a big state space with rare rewards, this would not be true: there, exploration is the whole problem. I would not drop it on a harder game, but I would also not claim it is what made this one work.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Explain the exploration&ndash;exploitation trade-off and how you handled it.</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Exploiting means taking the action you currently believe is best; exploring means trying others to learn whether they are better. If you only exploit, you never correct wrong early estimates. I used epsilon-greedy: a random move with probability epsilon, decayed linearly from 1 to 0.01 over the first 150 games, and zero during evaluation.</p><p>In my ablation, the schedule changed the final score by only a few points, and even a constant 0.01 worked, because the state space has only 256 inputs and crashes reset the agent quickly. On a harder problem I would expect exploration to matter much more.</p></div></div>
+</div>
+</div>

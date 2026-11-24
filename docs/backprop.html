@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loss and backprop by hand · Snake NN field guide</title>
+<meta name="description" content="Backpropagation is the chain rule, applied to each line of the forward pass from the bottom up. Six lines of NumPy, and a test that proves they are right.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">06 &middot; Loss and backprop by hand</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 06</span>
+<h2>Loss and backprop by hand</h2>
+<p class="lede">Backpropagation is the chain rule, applied to each line of the forward pass from the bottom up. Six lines of NumPy, and a test that proves they are right.</p>
+<div class="meta">Entry 06 &middot; snake_ai/network.py: q_loss, backward &middot; tests/test_network.py</div>
+</header>
+<div class="prose measure">
+<h3>The error we train on</h3>
+<p>Suppose that, for some remembered state <span class="math">s</span>, we know the number the network <i>should</i> have output for the move <span class="math">a</span> that was played. Call it the target <span class="math">y</span>. (Where <span class="math">y</span> comes from is chapter 8.) The error is the squared difference, averaged over the batch:</p>
+<span class="eq">L = <span class="up">mean</span>( (Q(s, a) &minus; y)<sup>2</sup> ) &nbsp;&nbsp;&nbsp;&nbsp; &part;L / &part;Q(s, a) = 2 (Q(s, a) &minus; y) / n</span>
+<p>This is the <i>mean squared error</i>. Squaring makes every error positive and punishes big misses more than small ones. Note what is <b>not</b> in it: the two moves that were not played. We have no evidence about them from this step, so their outputs get a gradient of exactly zero.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/network.py</span><a class="srclink" href="source.html#snake_ai/network.py@def q_loss">q_loss</a></div>
+<pre>rows = np.arange(n)
+error = q[rows, actions] - targets          # one number per sample
+loss = float(np.mean(error ** 2))
+dq = np.zeros_like(q)
+dq[rows, actions] = 2.0 * error / n         # only the move that was played</pre>
+</div>
+
+<div class="prose measure">
+<h3>The chain rule, one line at a time</h3>
+<p>We want <span class="math">&part;L/&part;W</span> for every weight: how much the loss changes if that weight changes a little. The <i>chain rule</i> says that if <span class="math">L</span> depends on <span class="math">q</span>, and <span class="math">q</span> depends on <span class="math">W2</span>, then <span class="math">&part;L/&part;W2 = &part;L/&part;q &middot; &part;q/&part;W2</span>. Backprop applies this to each line of <code>forward</code>, starting from the last.</p>
+<p><b>Line 3, <code>q = h @ W2 + b2</code>.</b> Output <span class="math">k</span> is <span class="math">&Sigma;<sub>j</sub> h<sub>j</sub> W2<sub>jk</sub> + b2<sub>k</sub></span>. Change <span class="math">W2<sub>jk</sub></span> a little and <span class="math">q<sub>k</sub></span> changes by <span class="math">h<sub>j</sub></span> times that. So <span class="math">&part;L/&part;W2<sub>jk</sub> = h<sub>j</sub> &middot; dq<sub>k</sub></span>, summed over the batch. As matrices, that is <code>h.T @ dq</code>, shape (64, n) @ (n, 3) = (64, 3), the same shape as <code>W2</code>, as every gradient must be. The bias adds directly, so its gradient is <code>dq</code> summed over the batch.</p>
+<p>To keep going we also need the gradient for <code>h</code>. Hidden unit <span class="math">j</span> feeds all three outputs, so its gradient collects from all three: <span class="math">dh<sub>j</sub> = &Sigma;<sub>k</sub> dq<sub>k</sub> W2<sub>jk</sub></span>, which is <code>dq @ W2.T</code>. The error flows back through the same weights it came forward through, transposed.</p>
+<p><b>Line 2, <code>h = max(0, z1)</code>.</b> Where the unit was on, ReLU's slope is 1 and the gradient passes unchanged. Where it was off, the slope is 0 and the gradient stops. So <code>dz1 = dh * (h &gt; 0)</code>.</p>
+<p><b>Line 1, <code>z1 = x @ W1 + b1</code>.</b> Exactly the same pattern as line 3: <code>dW1 = x.T @ dz1</code> and <code>db1 = dz1.sum(axis=0)</code>. We do not need the gradient for <code>x</code>; inputs are not learned.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/network.py</span><a class="srclink" href="source.html#snake_ai/network.py@def backward">backward</a></div>
+<pre>dW2 = h.T @ dq                  # q = h @ W2 + b2
+db2 = dq.sum(axis=0)
+dh = dq @ self.W2.T
+dz1 = dh * (h > 0)              # h = max(0, z1)
+dW1 = x.T @ dz1                 # z1 = x @ W1 + b1
+db1 = dz1.sum(axis=0)</pre>
+</div>
+
+<div class="prose measure">
+<p>That is all of backpropagation for this network. The figure below runs it on a network small enough to show every number: 3 inputs, 2 hidden units, 3 outputs, one remembered step.</p>
+</div>
+
+<figure class="fig" data-fig="backprop">
+<span class="fig-label">FIG_007</span>
+<div class="fig-body"></div>
+<figcaption><b>Forward, then backward</b> Step through one full update. Watch the hidden unit that is off: it gets no gradient at step 9, and none of its incoming weights change.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Proving it: the gradient check</h3>
+<p>Hand-written gradients are easy to get wrong in ways that still train, just badly. The classic referee is the <i>numerical gradient</i>. Nudge one weight up by a tiny <span class="math">h</span>, measure the loss, nudge it down, measure again:</p>
+<span class="eq">&part;L/&part;w &asymp; ( L(w + h) &minus; L(w &minus; h) ) / 2h</span>
+<p>This needs two forward passes per weight, far too slow for training, but it uses nothing except the forward pass, so it is very hard to get wrong. <code>test_gradient_check</code> does it for every one of the weights of an 11 &rarr; 16 &rarr; 3 network on a random batch of 8, with <span class="math">h = 10<sup>&minus;6</sup></span>, and compares with <code>backward()</code> using the relative error <span class="math">|a &minus; b| / (|a| + |b|)</span>. It must be below <span class="math">10<sup>&minus;6</sup></span>; in practice it is around <span class="math">10<sup>&minus;9</sup></span>.</p>
+<p>Below is the same check, running in your browser. Break the backprop on purpose and see what it catches.</p>
+</div>
+
+<figure class="fig" data-fig="gradcheck">
+<span class="fig-label">FIG_008</span>
+<div class="fig-body"></div>
+<figcaption><b>Toggle a bug</b> Each button breaks one line of backprop. The check compares the result with finite differences for every parameter. Notice which parameters go wrong for each bug: it points straight at the broken line.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p>The "forget the 2" bug is the instructive one. Every gradient is exactly half of the truth, so training still works, just as if the learning rate were halved. Nothing crashes, the curves look plausible, and without a gradient check you could carry that bug for months.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Derive the gradient of the loss with respect to W1.</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Go backwards through the forward pass. The loss gradient at the output is <code>2(Q &minus; y)/n</code>, only in the column of the action taken. Through <code>q = h W2 + b2</code>, the hidden gradient is <code>dq W2&#7488;</code>. Through the ReLU, multiply elementwise by the mask <code>h &gt; 0</code> to get <code>dz1</code>. Through <code>z1 = x W1 + b1</code>, the weight gradient is <code>x&#7488; dz1</code>: input times error, summed over the batch, with shape 11 by 64 like W1. I verify it against central finite differences in a unit test; the relative error is around 1e-9.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="forward.html">&larr; 05 &middot; The forward pass</a><a href="optimizer.html">07 &middot; Gradient descent and Adam &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snake without a screen · Snake NN field guide</title>
+<meta name="description" content="The game is a grid, a list of cells and four rules. Getting the order of those rules right was the first real bug I had to think about.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">02 &middot; Snake without a screen</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 02</span>
+<h2>Snake without a screen</h2>
+<p class="lede">The game is a grid, a list of cells and four rules. Getting the order of those rules right was the first real bug I had to think about.</p>
+<div class="meta">Entry 02 &middot; snake_ai/game.py &middot; tests/test_game.py</div>
+</header>
+<div class="prose measure">
+<h3>The board is just coordinates</h3>
+<p>An agent does not need pixels. The game lives in <code>SnakeGame</code>, a class with no graphics at all. The board is 20 &times; 20 cells, and a cell is a pair <code>(x, y)</code>. Like rows on a screen, <i>y grows downwards</i>, so "up" is <code>(0, &minus;1)</code>. Getting this wrong once flips every "food up" input, and the network learns nonsense without any error message.</p>
+<p>The snake is a <code>deque</code> of cells, head first. A deque (double-ended queue) can add at the front and remove at the back in constant time, which is exactly what moving a snake is: a new head appears at the front, the tail disappears at the back. Next to it I keep a <code>set</code> of the same cells, because "is this cell part of the body?" gets asked several times per step and a set answers in constant time.</p>
+<p>A new game puts a snake of length 3 in the middle, heading right, and drops the food on a random free cell. The random generator is NumPy's <code>default_rng(seed)</code>, owned by the game, so a seed reproduces every food position.</p>
+
+<h3>One step, in order</h3>
+<p><code>step(action)</code> is the whole game. It follows the shape every reinforcement-learning environment uses: action in, <code>(state, reward, done, info)</code> out.</p>
+<ol>
+<li>Turn: work out the new heading from the relative action (chapter 3).</li>
+<li>Compute the new head: old head plus the heading.</li>
+<li>If the new head is <b>not</b> the food, pop the tail <b>first</b>.</li>
+<li>If the new head is off the board or in the body: crash, reward <b>&minus;10</b>, game over.</li>
+<li>Otherwise push the new head. If it was the food: score +1, reward <b>+10</b>, new food. The tail was never popped, so the snake is one cell longer.</li>
+<li>If the snake has gone <code>100 &times; length</code> steps without eating, stop the game (a <i>time-out</i>).</li>
+</ol>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/game.py</span><a class="srclink" href="source.html#snake_ai/game.py@def step">read it all</a></div>
+<pre>eats = new_head == self.food
+
+# Move the tail first. If the head moves into the cell the tail just
+# left, that is legal, so the tail must be gone before we check.
+tail = None
+if not eats:
+    tail = self.snake.pop()
+    self.body.discard(tail)
+
+if self.is_wall(new_head) or new_head in self.body:
+    ...  # crash: REWARD_CRASH, terminal</pre>
+</div>
+
+<div class="prose measure">
+<h3>The tail rule</h3>
+<p>Step 3 is the subtle one. Picture a snake curled in a tight square, its head right next to its own tail. It moves into the tail's cell. Is that a crash? In real Snake, no: on the same tick the tail moves out of the way. If you check for a collision before removing the tail, the snake dies there, and the agent learns that chasing its own tail is deadly when it is actually one of the safest things a long snake can do.</p>
+<p>Try it below. Pick <em>chasing its tail</em> and turn left. Then switch on the bug and do it again.</p>
+</div>
+
+<figure class="fig" data-fig="gamesim">
+<span class="fig-label">FIG_002</span>
+<div class="fig-body"></div>
+<figcaption><b>The rules, playable</b> Steer with the buttons, or click the board and use the arrow keys. The card shows the game state, with fields that changed in blue. Turn on the bug and move into the tail to see why the order of two lines matters.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Two kinds of "game over"</h3>
+<p>A crash and a time-out both end the game, but they mean different things, and <code>info["terminal"]</code> keeps them apart.</p>
+<p>A crash is a <b>terminal</b> state: the game really is over and nothing good can follow. A time-out is a <b>truncation</b>: I stopped a snake that was circling forever, but the game itself could have continued. When we get to Q-learning, a terminal step means "the future is worth exactly 0", while a truncated step still has a future. Treating a time-out as a crash would teach the agent that some ordinary positions are fatal, for reasons it cannot see. So a time-out gets reward 0 and <code>terminal = False</code>.</p>
+<p>In practice the trained snake never times out: all 100 evaluation games end in a body crash. The limit matters early, when a random snake can wander for hundreds of steps.</p>
+
+<h3>Rewards</h3>
+<p>The whole learning signal is three constants at the top of the file: <code>REWARD_FOOD = 10</code>, <code>REWARD_CRASH = &minus;10</code>, <code>REWARD_STEP = 0</code>. There is no reward for moving towards the food. I left that out on purpose: shaping rewards by hand is a way of telling the agent the answer, and I wanted to see whether it could find "go towards the food" from +10 alone. It can (chapter 13).</p>
+
+<h3>Testing a game</h3>
+<p>Games are easy to get subtly wrong, so <code>tests/test_game.py</code> places snakes by hand and checks the result: moving forward keeps the length, eating grows it, the wall and body crash, the tail cell is legal, a time-out is not terminal, food never lands on the snake, and the same seed plays the same game. Fifteen tests, and they run in a fraction of a second.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Why do you remove the tail before checking for a collision?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Because the tail moves on the same tick as the head. If the head steps into the cell the tail is leaving, that is a legal move in Snake. Checking first would count it as a crash, so the agent would get &minus;10 for a safe move and learn to fear following its own tail. When the snake eats, the tail stays, but the food can never be on the tail, so there is no conflict. I have a test that puts the snake in a 2 by 2 loop and checks that this move survives.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="plan.html">&larr; 01 &middot; The plan, and a laptop with no pip</a><a href="inputs.html">03 &middot; Eleven numbers &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

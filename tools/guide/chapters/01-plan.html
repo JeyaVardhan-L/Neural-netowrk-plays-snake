@@ -1,0 +1,68 @@
+title: The plan, and a laptop with no pip
+lede: What I set out to build, why I allowed myself only NumPy, and the one diagram the whole project hangs on.
+meta: Entry 01 &middot; requirements.txt, the folder layout
+hint: setup
+---
+<div class="prose measure">
+<h3>What I wanted</h3>
+<p>I wanted one project where I understood every number. Most tutorials hand the hard part to a library: you call <code>model.fit()</code> or <code>loss.backward()</code> and something happens. That is fine for work, but it meant I could not answer the questions that come up in interviews. Why does ReLU help? What is the gradient of the loss with respect to the first weight matrix? Why does DQN need a second network?</p>
+<p>So the rules were simple. <b>NumPy only</b> for anything that learns. I write the forward pass, the loss, backpropagation and the optimiser myself. Matplotlib and Pillow are allowed for pictures, and pytest for tests, because none of them touch the learning.</p>
+
+<h3>Why Snake</h3>
+<p>Snake is small enough to train on a laptop in seconds, but it is not trivial: the agent has to trade off getting to the food against not trapping itself. There is no dataset of "correct moves". The agent has to discover what works by playing, which makes it <i>reinforcement learning</i>: learning from rewards instead of labels.</p>
+<p>That also makes it a good test of understanding. In supervised learning the target is given. Here I had to build the target myself, from the reward and the network's own guess about the future. Chapter 8 is about exactly that.</p>
+
+<h3>The plan in one picture</h3>
+<p>Everything in this project is one loop. The game produces a state, the network turns the state into three scores, the agent picks a move, and the game moves on. In the background, every step is written to a memory, and the network learns from random handfuls of old steps. Click each box to see which file does it.</p>
+</div>
+
+<figure class="fig" data-fig="loop">
+<span class="fig-label">FIG_001</span>
+<div class="fig-body"></div>
+<figcaption><b>The whole project</b> The solid loop is playing one step. The dashed path is learning. Click a box to see what it does and where it lives; hover to stop the dot.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Day one: the laptop had no pip</h3>
+<p>I booted into Ubuntu for this, because training is CPU work and Linux makes it easy to use every core. The machine is a laptop with a 13th-gen Intel i5-13420H (12 threads) and 14 GB of RAM. No GPU, and no need for one: the network has 963 parameters.</p>
+<p>The first command failed. Ubuntu's Python 3.14 ships without <code>pip</code> and without <code>ensurepip</code>, so <code>python3 -m venv .venv</code> refused to create an environment. The fix without touching the system Python was to create the environment without pip and install pip into it:</p>
+</div>
+
+<div class="measure log">
+<div class="head"><span>terminal</span><span>setting up</span></div>
+<pre>$ python3 -m venv .venv
+The virtual environment was not created successfully because ensurepip is not available.
+
+$ python3 -m venv --without-pip .venv
+$ curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+$ .venv/bin/python get-pip.py
+$ .venv/bin/pip install -r requirements.txt
+$ .venv/bin/python -c "import numpy; print(numpy.__version__)"
+2.5.5</pre>
+</div>
+
+<div class="prose measure">
+<p>On a normal Ubuntu install the cleaner fix is <code>sudo apt install python3-venv python3-pip</code>. Either way, a <i>virtual environment</i> is a private folder of packages for one project, so this project's NumPy version can never break another project.</p>
+
+<h3>The layout I settled on</h3>
+<pre>snake_ai/         the library
+  game.py         Snake: board, rules, the 11 inputs
+  network.py      the network: forward, backward, loss, Adam
+  agent.py        DQN: epsilon-greedy, replay memory, target network
+  training.py     the training loop and evaluation
+  baselines.py    random and hand-written policies to compare against
+train.py          train a model            -> runs/main/, models/
+evaluate.py       measure a model
+play.py           watch it play (terminal) or save a GIF
+experiments.py    the ablation study       -> results/experiments/
+analyze.py        baselines + the 256 possible inputs -> results/analysis.json
+make_charts.py    the PNG charts for the README
+tests/            42 tests, including a gradient check
+docs/             this guide (GitHub Pages)</pre>
+<p>Two habits from the start. First, the library has no printing and no file paths in it; scripts at the top level do that. Second, everything is seeded. The same seed gives the same game, the same network and the same training run, down to the last digit. I checked this by training twice and getting 26.43 both times. Without that, every comparison in chapter 12 would be guesswork.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Walk me through this project in a minute.</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>It is a Deep Q-Network that learns Snake, written from scratch in NumPy. The game gives the agent 11 binary features: danger straight, right and left, its heading, and which way the food is. A two-layer network, 11 to 64 to 3, outputs a Q-value for each relative move. I train it with Q-learning: rewards of +10 for food and &minus;10 for a crash, a replay memory, a target network and Adam, all hand-written, with a numerical gradient check to prove the backprop is right.</p><p>After 400 games, about 12 seconds on a CPU, it averages 26 apples. Then I ran an ablation study over 5 seeds and found the ceiling comes from the 11 inputs, not the learner: the network ends up matching a hand-written rule on 94% of its moves.</p></div></div>
+</div>
+</div>

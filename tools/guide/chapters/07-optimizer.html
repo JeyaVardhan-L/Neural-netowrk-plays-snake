@@ -1,0 +1,60 @@
+title: Gradient descent and Adam
+lede: A gradient says which way is downhill. How far to step is a separate question, and Adam answers it differently for every weight.
+meta: Entry 07 &middot; snake_ai/network.py: Adam, SGD
+hint: optimisers
+---
+<div class="prose measure">
+<h3>Downhill, one step at a time</h3>
+<p>The gradient points in the direction where the loss grows fastest. Step the other way and the loss goes down. That is <i>gradient descent</i>:</p>
+<span class="eq">w &larr; w &minus; &eta; &middot; &part;L/&part;w</span>
+<p><span class="math">&eta;</span> (eta) is the <b>learning rate</b>, the size of the step. In the code it is two lines, kept in <code>SGD</code> for comparison:</p>
+<pre>for k, p in params.items():
+    p -= self.lr * grads[k]</pre>
+<p>Because we use a random batch of 64 transitions instead of all of them, each gradient is a noisy estimate of the true one. That is <i>stochastic</i> (or <i>mini-batch</i>) gradient descent. The noise is fine on average, and much cheaper than computing the exact gradient over the whole memory.</p>
+
+<h3>The trouble with one step size</h3>
+<p>Real loss surfaces are steep in some directions and nearly flat in others. A learning rate small enough to be safe in the steep direction crawls in the flat one. One big enough to make progress in the flat direction overshoots in the steep one, bouncing from wall to wall, and past a certain size each bounce is bigger than the last and the weights fly off to infinity. For a bowl with curvature <span class="math">c</span>, gradient descent diverges once <span class="math">&eta; &gt; 2/c</span>.</p>
+</div>
+
+<figure class="fig" data-fig="optim">
+<span class="fig-label">FIG_009</span>
+<div class="fig-body"></div>
+<figcaption><b>A long, narrow valley</b> Both optimisers start at the same point with the same learning rate. Push the learning rate past 0.143 and watch plain gradient descent (grey) explode while Adam (blue) keeps going.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Adam, line by line</h3>
+<p><b>Adam</b> keeps two running averages for every weight:</p>
+<ul>
+<li><span class="math">m</span>, the average gradient. This is <i>momentum</i>: if the gradient keeps pointing the same way, <span class="math">m</span> builds up; if it flips back and forth, it cancels out.</li>
+<li><span class="math">v</span>, the average squared gradient: how big this weight's gradients usually are.</li>
+</ul>
+<p>The step is <span class="math">&eta; &middot; m / &radic;v</span>. Dividing by <span class="math">&radic;v</span> is the key idea: a weight with big gradients gets its step scaled down, a weight with tiny gradients gets its step scaled up. Every weight ends up moving at roughly <span class="math">&eta;</span> per step, whatever the scale of its gradient. That is exactly what the narrow valley needs.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/network.py</span><a class="srclink" href="source.html#snake_ai/network.py@class Adam">Adam.step</a></div>
+<pre>self.t += 1
+c1 = 1.0 - self.beta1 ** self.t
+c2 = 1.0 - self.beta2 ** self.t
+for k, p in params.items():
+    g = grads[k]
+    self.m[k] = self.beta1 * self.m[k] + (1.0 - self.beta1) * g
+    self.v[k] = self.beta2 * self.v[k] + (1.0 - self.beta2) * g * g
+    m_hat = self.m[k] / c1
+    v_hat = self.v[k] / c2
+    p -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)</pre>
+</div>
+
+<div class="prose measure">
+<p><span class="math">&beta;<sub>1</sub> = 0.9</span> means <span class="math">m</span> roughly averages the last 10 gradients; <span class="math">&beta;<sub>2</sub> = 0.999</span> means <span class="math">v</span> averages the last 1,000. <span class="math">&epsilon; = 10<sup>&minus;8</sup></span> only stops a division by zero.</p>
+<p><b>Bias correction.</b> Both averages start at zero. After the first step, <span class="math">m = 0.1 g</span>, which is far too small: it is mostly the zero we started from. Dividing by <span class="math">1 &minus; &beta;<sup>t</sup></span> fixes that: at <span class="math">t = 1</span>, <span class="math">m&#770; = 0.1 g / 0.1 = g</span> and <span class="math">v&#770; = g<sup>2</sup></span>, so the first step is <span class="math">&eta; &middot; g / |g|</span>: exactly <span class="math">&eta;</span> in the direction of the gradient, whatever its size. <code>test_adam_first_step_is_lr_sized</code> checks that with gradients of 0.5, &minus;100 and 0.001: all three weights move by 0.1. As <span class="math">t</span> grows, <span class="math">&beta;<sup>t</sup></span> goes to 0 and the correction fades away.</p>
+
+<h3>What I used, and what I found</h3>
+<p>Adam with <span class="math">&eta; = 0.001</span>, the most common default. In the ablation study (chapter 12) I also trained with plain gradient descent at 0.001 and 0.01. On this problem it reached the same score, 27.7 and 28.4 against Adam's 27.0, all within the seed-to-seed noise. I think that is because the problem is so small and well scaled: 11 inputs that are all 0 or 1, rewards of &plusmn;10. Adam's advantage is on bigger networks with badly scaled gradients. I kept it because it is the default for DQN and because it was the part of this project I most wanted to understand.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">How does Adam work, and why the bias correction?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Adam keeps, per weight, an exponential moving average of the gradient, which acts as momentum, and of the squared gradient, which measures its scale. The update is the learning rate times the first divided by the square root of the second, so each weight takes a step of roughly the learning rate regardless of how big its raw gradient is.</p><p>Both averages start at zero, so early on they are biased towards zero. Dividing by one minus beta to the power t removes that bias; on the very first step it makes the update exactly the learning rate times the sign of the gradient.</p></div></div>
+</div>
+</div>

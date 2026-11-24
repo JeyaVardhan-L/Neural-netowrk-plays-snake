@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neural network that plays Snake · field guide</title>
+<meta name="description" content="A build journal: a two-layer neural network in plain NumPy that teaches itself to play Snake with Q-learning, from the first line of code to the interview questions.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents" aria-current="page">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<section class="cover wide">
+<p class="eyebrow">A build journal &middot; NumPy only &middot; November 2026</p>
+<h1>A neural network that <em>teaches</em> itself Snake</h1>
+<div class="intro">
+<p>I built this to stop treating neural networks as a black box. There is no PyTorch and no TensorFlow here. The network is two matrix multiplications and a ReLU, the backpropagation is six lines I wrote by hand, and the learning signal is three numbers: +10 for food, &minus;10 for a crash, 0 for everything else.</p>
+<p>The snake sees 11 simple inputs, like danger ahead or food to the left, and picks one of three moves: straight, right or left. At first it plays at random and dies in a few steps. A few hundred games later, about 12 seconds of training on my laptop, it averages 26 apples a game and chases food while dodging its own tail.</p>
+<p>This guide is the journal I kept while building it. Every chapter is one milestone, with the code that did it, a figure you can play with, the numbers I actually measured, and the interview question I would expect about it. It is honest about what did not matter and where the agent still fails. If you follow it in order you can rebuild the project from an empty folder.</p>
+</div>
+<div class="cover-meta">
+<span>network <b>11 &rarr; 64 &rarr; 3</b></span>
+<span>parameters <b>963</b></span>
+<span>training <b>400 games, 12 s, CPU</b></span>
+<span>greedy average <b>26.43</b></span>
+<span>tests <b>42</b></span>
+</div>
+</section>
+
+<figure class="fig" data-fig="hero">
+<span class="fig-label">FIG_000</span>
+<div class="fig-body"></div>
+<figcaption><b>The trained network, playing live</b> This is the real model, its 963 weights loaded into the page and run in JavaScript. The dashed squares are the three cells it checks for danger; the lines show which weights carry the current inputs. Switch to <em>untrained</em> to see where it started.</figcaption>
+</figure>
+
+<div class="divider" id="contents">Contents</div>
+<section class="wide">
+<ol class="toc">
+<li><a href="plan.html"><span class="n">01</span><span class="t">The plan, and a laptop with no pip<small>What I set out to build, why I allowed myself only NumPy, and the one diagram the whole project hangs on.</small></span><span class="h">setup</span></a></li>
+<li><a href="game.html"><span class="n">02</span><span class="t">Snake without a screen<small>The game is a grid, a list of cells and four rules. Getting the order of those rules right was the first real bug I had to think about.</small></span><span class="h">the environment</span></a></li>
+<li><a href="inputs.html"><span class="n">03</span><span class="t">Eleven numbers<small>The network never sees the board. It sees eleven 0s and 1s, and it answers with a move relative to its own head. Both choices shape everything that follows.</small></span><span class="h">the state</span></a></li>
+<li><a href="neuron.html"><span class="n">04</span><span class="t">One neuron<small>A neuron multiplies, adds and then clips at zero. The clipping looks like a detail; without it, this snake provably cannot learn to play.</small></span><span class="h">neurons, ReLU</span></a></li>
+<li><a href="forward.html"><span class="n">05</span><span class="t">The forward pass<small>Sixty-four neurons at once is a matrix multiply. The whole network is three lines of NumPy, and the shapes tell you almost everything.</small></span><span class="h">matrices</span></a></li>
+<li><a href="backprop.html"><span class="n">06</span><span class="t">Loss and backprop by hand<small>Backpropagation is the chain rule, applied to each line of the forward pass from the bottom up. Six lines of NumPy, and a test that proves they are right.</small></span><span class="h">gradients</span></a></li>
+<li><a href="optimizer.html"><span class="n">07</span><span class="t">Gradient descent and Adam<small>A gradient says which way is downhill. How far to step is a separate question, and Adam answers it differently for every weight.</small></span><span class="h">optimisers</span></a></li>
+<li><a href="q-learning.html"><span class="n">08</span><span class="t">Rewards and Q-learning<small>There is no dataset of correct moves. The target the network learns from is built from the reward it just got plus its own guess about what comes next.</small></span><span class="h">Bellman</span></a></li>
+<li><a href="exploration.html"><span class="n">09</span><span class="t">Explore, then exploit<small>An agent that always takes its best-known move never finds out whether another move is better. Epsilon-greedy is the simplest fix, and here it mattered less than I expected.</small></span><span class="h">epsilon-greedy</span></a></li>
+<li><a href="dqn.html"><span class="n">10</span><span class="t">Replay memory and the target network<small>The two ideas that turned Q-learning into Deep Q-Networks. I built both, then switched them off to see what they were worth.</small></span><span class="h">DQN</span></a></li>
+<li><a href="training.html"><span class="n">11</span><span class="t">The first run took 12 seconds<small>I expected to leave it overnight. Four hundred games later it was done, averaging 26 apples, and the loss curve was going the wrong way.</small></span><span class="h">training</span></a></li>
+<li><a href="experiments.html"><span class="n">12</span><span class="t">What actually mattered<small>Ninety-five training runs, one setting changed at a time, five seeds each. Two settings mattered a lot. Most of the rest were inside the noise.</small></span><span class="h">ablations</span></a></li>
+<li><a href="inside.html"><span class="n">13</span><span class="t">Looking inside: it learned the rule<small>I wrote down the obvious strategy as five lines of Python and compared. The network had rediscovered it, and agrees with it on 94% of the moves it plays.</small></span><span class="h">interpretation</span></a></li>
+<li><a href="limits.html"><span class="n">14</span><span class="t">Bugs, gaps and the ceiling<small>Every game ends the same way: the snake walks into a pocket of its own body that it had no way to see. Here is that, plus every bug I hit along the way.</small></span><span class="h">honesty</span></a></li>
+<li><a href="rebuild.html"><span class="n">15</span><span class="t">Rebuild it from zero<small>The order I would build it in again, what to check at each step before moving on, and how to know you really understand it.</small></span><span class="h">checklist</span></a></li>
+<li><a href="source.html"><span class="n">&mdash;</span><span class="t">Annotated source<small>Every line of the Python code, with a note beside each block.</small></span><span class="h">reference</span></a></li>
+<li><a href="questions.html"><span class="n">&mdash;</span><span class="t">Common questions<small>The interview questions, answered the way I would say them out loud.</small></span><span class="h">practice</span></a></li>
+</ol>
+</section>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

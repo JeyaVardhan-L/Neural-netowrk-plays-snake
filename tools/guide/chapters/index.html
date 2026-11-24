@@ -1,0 +1,34 @@
+title: Neural network that plays Snake · field guide
+lede: A build journal: a two-layer neural network in plain NumPy that teaches itself to play Snake with Q-learning, from the first line of code to the interview questions.
+meta: cover
+hint: cover
+---
+<section class="cover wide">
+<p class="eyebrow">A build journal &middot; NumPy only &middot; November 2026</p>
+<h1>A neural network that <em>teaches</em> itself Snake</h1>
+<div class="intro">
+<p>I built this to stop treating neural networks as a black box. There is no PyTorch and no TensorFlow here. The network is two matrix multiplications and a ReLU, the backpropagation is six lines I wrote by hand, and the learning signal is three numbers: +10 for food, &minus;10 for a crash, 0 for everything else.</p>
+<p>The snake sees 11 simple inputs, like danger ahead or food to the left, and picks one of three moves: straight, right or left. At first it plays at random and dies in a few steps. A few hundred games later, about 12 seconds of training on my laptop, it averages 26 apples a game and chases food while dodging its own tail.</p>
+<p>This guide is the journal I kept while building it. Every chapter is one milestone, with the code that did it, a figure you can play with, the numbers I actually measured, and the interview question I would expect about it. It is honest about what did not matter and where the agent still fails. If you follow it in order you can rebuild the project from an empty folder.</p>
+</div>
+<div class="cover-meta">
+<span>network <b>11 &rarr; 64 &rarr; 3</b></span>
+<span>parameters <b>963</b></span>
+<span>training <b>400 games, 12 s, CPU</b></span>
+<span>greedy average <b>26.43</b></span>
+<span>tests <b>42</b></span>
+</div>
+</section>
+
+<figure class="fig" data-fig="hero">
+<span class="fig-label">FIG_000</span>
+<div class="fig-body"></div>
+<figcaption><b>The trained network, playing live</b> This is the real model, its 963 weights loaded into the page and run in JavaScript. The dashed squares are the three cells it checks for danger; the lines show which weights carry the current inputs. Switch to <em>untrained</em> to see where it started.</figcaption>
+</figure>
+
+<div class="divider" id="contents">Contents</div>
+<section class="wide">
+<ol class="toc">
+{{TOC}}
+</ol>
+</section>

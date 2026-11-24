@@ -1,0 +1,77 @@
+title: What actually mattered
+lede: Ninety-five training runs, one setting changed at a time, five seeds each. Two settings mattered a lot. Most of the rest were inside the noise.
+meta: Entry 12 &middot; experiments.py &middot; results/experiments/
+hint: ablations
+---
+<div class="prose measure">
+<h3>Why bother</h3>
+<p>Every number in the default config is a choice: 64 hidden units, <span class="math">&gamma;</span> = 0.9, a learning rate of 0.001, a target network, a replay memory. I picked them from common practice before training anything. An <b>ablation study</b> tests each choice by changing it alone and measuring the effect. If I cannot say what a setting does to the result, I do not really understand why it is there.</p>
+<p>Because a run takes 12 to 40 seconds, I could afford to do it properly. <code>experiments.py</code> defines 18 variants in 7 groups and trains each with 5 seeds, 95 runs in all, spread over 11 worker processes with <code>ProcessPoolExecutor</code>. The whole study took 5 minutes 29 seconds. Each run is scored by 100 greedy games on boards from its own seed, and each variant reports the mean and standard deviation over its 5 seeds.</p>
+
+<h3>Seeds and noise</h3>
+<p>The default config, trained with seeds 0 to 4, scored 28.5, 25.1, 32.4, 23.9 and 25.2. Same code, same settings, a spread of 8.5 apples, standard deviation 3.1. Any single-run comparison smaller than that is meaningless. This was the most useful thing the study taught me: <b>one run is an anecdote</b>.</p>
+</div>
+
+<figure class="fig" data-fig="ablation">
+<span class="fig-label">FIG_016</span>
+<div class="fig-body"></div>
+<figcaption><b>Every variant</b> Pick a group. Each ring is one seed's score, the filled dot is the mean, the line &plusmn;1 standard deviation, the default in blue. A difference only counts if the dots clearly separate.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>The full table</h3>
+<table>
+<tr><th>variant</th><th class="num">last 100 training</th><th class="num">greedy eval</th></tr>
+<tr><td><b>default</b></td><td class="num">24.4 &plusmn; 0.8</td><td class="num">27.0 &plusmn; 3.1</td></tr>
+<tr><td>2,000 games instead of 400</td><td class="num">24.0 &plusmn; 1.3</td><td class="num">28.4 &plusmn; 1.4</td></tr>
+<tr><td>no target network</td><td class="num">23.7 &plusmn; 0.7</td><td class="num">28.5 &plusmn; 1.2</td></tr>
+<tr><td>no replay memory</td><td class="num">24.1 &plusmn; 0.7</td><td class="num">26.6 &plusmn; 1.7</td></tr>
+<tr><td>neither</td><td class="num">24.5 &plusmn; 0.9</td><td class="num">25.0 &plusmn; 4.0</td></tr>
+<tr><td>&gamma; = 0</td><td class="num">11.1 &plusmn; 0.5</td><td class="num"><b>5.8 &plusmn; 7.1</b></td></tr>
+<tr><td>&gamma; = 0.5</td><td class="num">22.0 &plusmn; 0.9</td><td class="num">30.9 &plusmn; 1.9</td></tr>
+<tr><td>&gamma; = 0.99</td><td class="num">23.9 &plusmn; 1.2</td><td class="num">26.6 &plusmn; 1.4</td></tr>
+<tr><td>4 hidden units</td><td class="num">3.6 &plusmn; 2.4</td><td class="num"><b>1.2 &plusmn; 1.5</b></td></tr>
+<tr><td>16 hidden units</td><td class="num">23.6 &plusmn; 1.7</td><td class="num">27.7 &plusmn; 1.0</td></tr>
+<tr><td>256 hidden units</td><td class="num">23.4 &plusmn; 0.6</td><td class="num">26.3 &plusmn; 3.3</td></tr>
+<tr><td>learning rate 0.0001</td><td class="num">25.7 &plusmn; 0.8</td><td class="num">29.4 &plusmn; 2.3</td></tr>
+<tr><td>learning rate 0.01</td><td class="num">23.0 &plusmn; 1.0</td><td class="num">27.2 &plusmn; 1.8</td></tr>
+<tr><td>SGD, lr 0.001</td><td class="num">23.9 &plusmn; 0.9</td><td class="num">27.7 &plusmn; 2.4</td></tr>
+<tr><td>SGD, lr 0.01</td><td class="num">23.8 &plusmn; 1.3</td><td class="num">28.4 &plusmn; 2.5</td></tr>
+<tr><td>&epsilon; constant 0.01</td><td class="num">23.5 &plusmn; 0.8</td><td class="num">26.6 &plusmn; 3.2</td></tr>
+<tr><td>&epsilon; decay over 50 games</td><td class="num">23.5 &plusmn; 1.2</td><td class="num">27.4 &plusmn; 2.1</td></tr>
+<tr><td>&epsilon; decay over 300 games</td><td class="num">23.8 &plusmn; 0.8</td><td class="num">29.9 &plusmn; 2.2</td></tr>
+</table>
+
+<h3>What mattered</h3>
+<p><b>Looking ahead.</b> With <span class="math">&gamma;</span> = 0 the agent values only the next reward. It learns not to crash and to take food that is right next to it, and nothing else. The evaluation average of 5.8 hides a split, which I only found by re-running the five seeds and looking at how their games ended. Four of them (scores 3.0, 1.3, 0.3 and 4.9) end 84 to 100 of their 100 evaluation games by <b>time-out</b>: the snake learned that circling is safe and has no reason to leave the circle unless the food is right next to it. The fifth seed found a normal policy and scored 19.7. Every value above 0 reached the usual plateau.</p>
+</div>
+
+<figure class="fig" data-fig="curves_gamma">
+<span class="fig-label">FIG_017</span>
+<div class="fig-body"></div>
+<figcaption><b>Discount factor</b> The dark line is &gamma; = 0. Hover to compare values at any game.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p><b>Enough hidden units.</b> Four hidden units cannot learn the task at all. Chapter 4 showed why one layer is not enough: the policy needs neurons that respond to combinations like "heading right and food up", and there are more such combinations than 4 neurons can cover. Sixteen were already enough, and 256 were no better, just slower.</p>
+</div>
+
+<figure class="fig" data-fig="curves_hidden">
+<span class="fig-label">FIG_018</span>
+<div class="fig-body"></div>
+<figcaption><b>Hidden layer size</b> Four units (dark) never get going. Turn it off to compare the other three.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>What did not clearly matter</h3>
+<p>Everything else lands between 25 and 31, and most differences are within one standard deviation. A few are suggestive but not proven with 5 seeds: a smaller learning rate (29.4), a longer exploration phase (29.9) and <span class="math">&gamma;</span> = 0.5 (30.9). Training five times longer, 2,000 games, moved the score from 27.0 to only 28.4. The agent was not under-trained; it was at its ceiling.</p>
+<p>I did not go back and change the defaults to the best numbers in this table. With 18 variants, some will look better by luck. Choosing the winner and reporting its score as the result would be <i>tuning on the test set</i>. If I wanted to use them, the right next step would be a fresh set of seeds for just those variants.</p>
+
+<h3>The real conclusion</h3>
+<p>Across very different learners (SGD or Adam, 16 or 256 units, with or without the DQN tricks) the score converges on the same plateau of about 25 to 30. When everything you change gives the same answer, the limit is not in the thing you are changing. It is in what the agent can see. The next chapter checks that directly.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">How did you choose your hyperparameters?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>I started from standard DQN defaults, then ran an ablation: change one setting at a time, five seeds per variant, score each with 100 greedy games, and compare means and standard deviations. That took 95 runs and about five and a half minutes on 11 cores.</p><p>The seed-to-seed spread for the same config was about 3 apples, so I only trusted differences bigger than that. Only two things clearly mattered: a discount above zero, and at least 16 hidden units. Everything else, including the optimiser and the DQN tricks, stayed within the noise, which pointed me to the input representation as the real limit. I did not re-pick defaults from the best results, since that would be tuning on the test.</p></div></div>
+</div>
+</div>

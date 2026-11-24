@@ -1,0 +1,80 @@
+title: The first run took 12 seconds
+lede: I expected to leave it overnight. Four hundred games later it was done, averaging 26 apples, and the loss curve was going the wrong way.
+meta: Entry 11 &middot; snake_ai/training.py &middot; train.py &middot; results/main/
+hint: training
+---
+<div class="prose measure">
+<h3>The loop</h3>
+<p>All the pieces from the last nine chapters fit into a dozen lines. For each game: pick <span class="math">&epsilon;</span> for this game, reset the board, and until the game ends: act, step, remember, learn.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/training.py</span><a class="srclink" href="source.html#snake_ai/training.py@def train">train</a></div>
+<pre>for g in range(games):
+    eps = epsilon_for_game(g, cfg)
+    state = game.reset()
+    done = False
+    while not done:
+        action = agent.act(state, eps)
+        next_state, reward, done, info = game.step(action)
+        agent.remember(state, action, reward, next_state, info["terminal"])
+        loss = agent.learn()
+        state = next_state</pre>
+</div>
+
+<div class="prose measure">
+<p>One gradient step per game step, on a batch of 64. Each game writes one row to <code>log.csv</code>: game number, score, steps, epsilon, mean loss, how it ended, the record so far and the elapsed time. At the end the weights go to <code>model.npz</code> and a 100-game evaluation to <code>summary.json</code>.</p>
+</div>
+
+<div class="measure log">
+<div class="head"><span>terminal</span><span>python train.py --out results/main --save-model models/snake_q.npz</span></div>
+<pre>game     1  score   0  mean(last 1)   0.00  record   0  eps 1.000      0.0s
+game    50  score   0  mean(last 25)   0.20  record   2  eps 0.677      0.2s
+game   100  score   4  mean(last 25)   1.72  record   4  eps 0.347      0.6s
+game   125  score   8  mean(last 25)   4.80  record   9  eps 0.182      0.9s
+game   150  score  36  mean(last 25)  10.88  record  36  eps 0.017      1.4s
+game   175  score  32  mean(last 25)  24.20  record  45  eps 0.010      2.4s
+game   200  score   6  mean(last 25)  23.96  record  45  eps 0.010      3.5s
+game   300  score  23  mean(last 25)  22.80  record  47  eps 0.010      7.6s
+game   400  score  11  mean(last 25)  24.08  record  47  eps 0.010     11.9s
+
+greedy evaluation over 100 games: mean 26.43, median 25.5, max 63, ends {'body': 100}</pre>
+</div>
+
+<div class="prose measure">
+<h3>Reading the curve</h3>
+<p>The first 100 games are almost all random moves, and the scores show it: 74 apples in 100 games, the first one in game 22. Learning is happening (the memory fills, the network starts to tell crashes apart from safe moves), but with <span class="math">&epsilon;</span> above 0.35 the snake cannot act on it.</p>
+<p>Then it takes off. The 20-game average passes 10 apples at game 148 and 20 at game 159. Within about 15 games the agent goes from barely competent to its final level. After that the average sits around 24 for the rest of the run, with single games anywhere from 2 to 47. That noise is real, not a training problem: one game's score depends heavily on where the food happens to land relative to the body.</p>
+</div>
+
+<figure class="fig" data-fig="trainlog">
+<span class="fig-label">FIG_015</span>
+<div class="fig-body"></div>
+<figcaption><b>The main training run</b> Every game of the real run, from <code>results/main/log.csv</code>. Hover or tap for one game's numbers. Switch to Steps and Loss; the loss is the one that surprised me.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>The loss went up</h3>
+<p>In supervised learning, a rising loss means something is broken. Here the mean loss per game went from 0.46 in the first 50 games to 3.29 in the last 100, while the score went from almost 0 to 24. Both are correct.</p>
+<p>The targets are not fixed labels; they are built from the agent's own play. A random snake mostly sees zeros and the odd &minus;10, which are easy to predict. A good snake eats every 15 steps or so, so its Q-values are large, and the target for every move includes a bootstrapped guess about apples several steps away. Bigger, noisier targets mean bigger squared errors. In reinforcement learning, <b>watch the reward, not the loss</b>.</p>
+
+<h3>Why so fast</h3>
+<p>The whole run is 99,213 game steps and about 98,000 gradient steps on batches of 64, with a network of 963 parameters. Each update is a few tiny matrix products. Training spends most of its time in Python overhead, not arithmetic, which is also why using more BLAS threads made no difference (12.2 s with one thread, 12.3 s with the default). The late games dominate the time because they are long: the first 150 games took 1.4 s, the last 250 took 10.5 s.</p>
+
+<h3>Measuring it properly</h3>
+<p>A training score is a poor measure: it includes random moves, and the network changes during each game. So <code>evaluate()</code> plays 100 fresh games with <span class="math">&epsilon;</span> = 0 and frozen weights, on boards from a fixed seed:</p>
+<table>
+<tr><th>mean</th><th>median</th><th>std</th><th>min</th><th>max</th><th>steps per game</th><th>ended by</th></tr>
+<tr><td class="num">26.43</td><td class="num">25.5</td><td class="num">9.87</td><td class="num">11</td><td class="num">63</td><td class="num">392</td><td>body: 100</td></tr>
+</table>
+<p>Every game ends with the snake running into itself. None hit a wall, none timed out. Chapter 14 looks at how.</p>
+<p>One caution I learned here: evaluation numbers depend on the boards. The same seed-0 model scored 28.46 in the ablation study, where evaluation used a different board seed. Both are honest; they just differ by the luck of the food. That is why chapter 12 compares averages over 5 training seeds, never single runs.</p>
+
+<h3>Reproducible to the digit</h3>
+<p>Every source of randomness takes a seed: the game's food, the network's initial weights, epsilon's coin flips and the memory's sampling. Running <code>python train.py</code> twice gave 26.43 both times. On another machine, small floating-point differences in NumPy's maths libraries can change a move somewhere and the numbers will drift slightly, but they should land in the same range.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">How did you evaluate the agent, and why not use the training scores?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Training scores mix in random exploratory moves and come from a network that changes every step, so they understate and blur the real performance. I evaluate separately: 100 new games with epsilon zero and frozen weights, on boards from a fixed seed, and report mean, median, spread and how games ended. The main model averages 26.4 with a median of 25.5.</p><p>I also compare against baselines on the same boards, and for design decisions I average over five training seeds, because a single run's score moves by several apples just from luck.</p></div></div>
+</div>
+</div>

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rewards and Q-learning · Snake NN field guide</title>
+<meta name="description" content="There is no dataset of correct moves. The target the network learns from is built from the reward it just got plus its own guess about what comes next.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">08 &middot; Rewards and Q-learning</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 08</span>
+<h2>Rewards and Q-learning</h2>
+<p class="lede">There is no dataset of correct moves. The target the network learns from is built from the reward it just got plus its own guess about what comes next.</p>
+<div class="meta">Entry 08 &middot; snake_ai/agent.py: Agent.learn</div>
+</header>
+<div class="prose measure">
+<h3>The vocabulary</h3>
+<p>Reinforcement learning has its own words, and interviews use them:</p>
+<ul>
+<li>The <b>agent</b> makes decisions; the <b>environment</b> (the game) responds.</li>
+<li>At each step the agent sees a <b>state</b> <span class="math">s</span>, takes an <b>action</b> <span class="math">a</span>, gets a <b>reward</b> <span class="math">r</span> and lands in a new state <span class="math">s&prime;</span>. That four-tuple, plus "did the game end", is a <b>transition</b>.</li>
+<li>One game from start to finish is an <b>episode</b>.</li>
+<li>A <b>policy</b> is the rule for choosing actions: state in, action out.</li>
+</ul>
+
+<h3>What a move is worth</h3>
+<p>A move should not be judged by its immediate reward alone. Turning towards the food gets 0 now, but leads to +10 a few steps later. So we judge a move by the <b>return</b>, the sum of all future rewards, each one discounted by a factor <span class="math">&gamma;</span> (gamma) per step of delay:</p>
+<span class="eq">G = r<sub>0</sub> + &gamma; r<sub>1</sub> + &gamma;<sup>2</sup> r<sub>2</sub> + &gamma;<sup>3</sup> r<sub>3</sub> + &hellip;</span>
+<p>With <span class="math">&gamma; = 0.9</span>, an apple 10 steps away is worth <span class="math">10 &times; 0.9<sup>10</sup> &asymp; 3.5</span> now. Discounting keeps the sum finite, prefers sooner rewards to later ones, and sets a rough horizon: <span class="math">1 / (1 &minus; &gamma;)</span> = 10 steps for 0.9.</p>
+<p>The <b>Q-function</b> <span class="math">Q(s, a)</span> is the expected return if you take action <span class="math">a</span> in state <span class="math">s</span> and play well afterwards. If you knew it, playing would be trivial: in every state, take the action with the biggest Q. Our network's three outputs are its estimate of exactly this, one per move.</p>
+
+<h3>The Bellman equation</h3>
+<p>The return has a recursive structure: the return from now is the reward now, plus <span class="math">&gamma;</span> times the return from the next state. If we play well from the next state, that return is the best Q-value there. So the true Q-function must satisfy:</p>
+<span class="eq">Q(s, a) = r + &gamma; &middot; max<sub>a&prime;</sub> Q(s&prime;, a&prime;)</span>
+<p>This is the <b>Bellman equation</b>, and it gives us a training target without anyone telling us the right answer. For any remembered transition, the right-hand side uses one real reward plus the network's own estimate one step later. Make the left side closer to the right side, over and over, and the real rewards gradually spread backwards through the estimates. This idea, learning a guess from a slightly better guess, is called <i>bootstrapping</i>.</p>
+<p>It is easiest to see in a world of five cells.</p>
+</div>
+
+<figure class="fig" data-fig="corridor">
+<span class="fig-label">FIG_010</span>
+<div class="fig-body"></div>
+<figcaption><b>Value flows backwards</b> Food on the right is worth +10, the wall on the left &minus;10. Press Sweep to apply the Bellman update to every cell. Then set &gamma; to 0 and do it again: the reward never reaches cell 1.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>From the equation to a gradient step</h3>
+<p>In the corridor, each cell's value is a number in a table. In Snake the "table" is the network, so instead of overwriting a cell, we take a gradient step that moves <span class="math">Q(s, a)</span> towards the target <span class="math">y</span>. The loss is the squared error from chapter 6:</p>
+<span class="eq">y = r + &gamma; &middot; max<sub>a&prime;</sub> Q<sub>target</sub>(s&prime;, a&prime;) &middot; (1 &minus; terminal) &nbsp;&nbsp;&nbsp;&nbsp; L = (Q(s, a) &minus; y)<sup>2</sup></span>
+<p>The <code>(1 &minus; terminal)</code> handles the end of a game. After a crash there is no next state worth anything, so the target is just the reward, &minus;10. This is why chapter 2 kept crashes and time-outs apart: a time-out is not terminal, so its target still includes the future. (<span class="math">Q<sub>target</sub></span> is a frozen copy of the network, explained in chapter 10.)</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/agent.py</span><a class="srclink" href="source.html#snake_ai/agent.py@def learn">Agent.learn</a></div>
+<pre>s, a, r, s2, terminal = self.memory.sample(cfg.batch_size)
+
+q_next = self.target.predict(s2).max(axis=1)
+y = r + cfg.gamma * q_next * (1.0 - terminal)
+
+q, cache = self.net.forward(s)
+loss, dq = q_loss(q, a, y)
+grads = self.net.backward(cache, dq)
+self.opt.step(self.net.params, grads)</pre>
+</div>
+
+<div class="prose measure">
+<p>Two tests check this exact behaviour. <code>test_target_uses_bellman_equation</code> stores one transition with reward 10 and checks that after 300 updates Q(s, a) is close to <span class="math">10 + &gamma; max Q(s&prime;)</span>. <code>test_terminal_ignores_the_future</code> stores a crash and checks that Q settles at &minus;10, whatever the next state looks like.</p>
+
+<h3>Off-policy</h3>
+<p>Notice the <code>max</code>. The target assumes we play the best move from <span class="math">s&prime;</span>, even if the move actually played next was random. That makes Q-learning <i>off-policy</i>: it learns the value of the greedy policy while following an exploring one. It is also what lets us learn from old transitions in memory, played by an older, worse version of the agent.</p>
+
+<h3>What gamma did to the snake</h3>
+<p>I trained 5 seeds each with four values of <span class="math">&gamma;</span>. Mean score over 100 greedy games:</p>
+<table>
+<tr><th>&gamma;</th><th class="num">score</th><th>what it means</th></tr>
+<tr><td>0</td><td class="num">5.8 &plusmn; 7.1</td><td>only the next reward counts: avoid crashing, eat food that is adjacent</td></tr>
+<tr><td>0.5</td><td class="num">30.9 &plusmn; 1.9</td><td>horizon of about 2 steps, the best score</td></tr>
+<tr><td>0.9 (default)</td><td class="num">27.0 &plusmn; 3.1</td><td>horizon of about 10 steps</td></tr>
+<tr><td>0.99</td><td class="num">26.6 &plusmn; 1.4</td><td>horizon of about 100 steps</td></tr>
+</table>
+<p>The surprise is that 0.5 beat 0.9. My explanation: the inputs already point at the food, so the agent does not need a long plan to reach it, and it cannot see far enough to plan around its own body anyway. A long horizon only adds noise to the targets. With <span class="math">&gamma;</span> = 0 the agent is blind to anything more than one step away, like cell 1 in the corridor, and its training score stalls at 11. I kept 0.9 as the default because it is the standard choice and I chose it before running the study; changing it afterwards to the best result would be tuning on the test.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">What is the Bellman equation, and how does DQN use it?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>It says the value of taking action a in state s equals the immediate reward plus gamma times the value of the best action in the next state. DQN turns that into a regression target: for a remembered transition, y is r plus gamma times the max Q of the next state from a frozen target network, or just r if the episode terminated. The loss is the squared difference between Q(s, a) and y, and only the output for the action taken gets a gradient. Repeating that propagates real rewards backwards through the value estimates.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="optimizer.html">&larr; 07 &middot; Gradient descent and Adam</a><a href="exploration.html">09 &middot; Explore, then exploit &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

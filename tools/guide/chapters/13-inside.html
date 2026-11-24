@@ -1,0 +1,68 @@
+title: Looking inside: it learned the rule
+lede: I wrote down the obvious strategy as five lines of Python and compared. The network had rediscovered it, and agrees with it on 94% of the moves it plays.
+meta: Entry 13 &middot; snake_ai/baselines.py &middot; analyze.py &middot; results/analysis.json
+hint: interpretation
+---
+<div class="prose measure">
+<h3>A score needs something to stand next to</h3>
+<p>Is 26 apples good? On its own the number means nothing. I needed baselines, measured on exactly the same boards. <code>evaluate()</code> accepts any function from state to action, so the network and the baselines run through the same code.</p>
+<p>The floor is <b>random moves</b>. The interesting one is a <b>hand-written rule</b> that uses the same 11 inputs the network gets: never step into danger, and among the safe moves prefer one that heads towards the food.</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/baselines.py</span><a class="srclink" href="source.html#snake_ai/baselines.py@def rule_policy">rule_policy</a></div>
+<pre>def rule_policy(state):
+    d = heading(state)
+    safe = [a for a in (STRAIGHT, TURN_RIGHT, TURN_LEFT) if state[_DANGER_INPUT[a]] == 0]
+    towards = [a for a in safe if state[_TOWARDS_FOOD_INPUT[turn(d, a)]] &gt; 0]
+    if towards:
+        return towards[0]
+    if safe:
+        return safe[0]
+    return STRAIGHT</pre>
+</div>
+
+<figure class="fig" data-fig="baselines">
+<span class="fig-label">FIG_019</span>
+<div class="fig-body"></div>
+<figcaption><b>Three policies, the same 100 boards</b> One dot per game. The network was never shown the rule; it only ever saw +10, &minus;10 and 0.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p>Random play eats 0.16 apples on average and mostly runs into a wall. The rule averages <b>27.45</b>. The trained network averages <b>26.43</b>. In other words, from three reward numbers and a few hundred games, the network found a policy as good as the strategy a person would write down after a minute's thought. Not better, not worse.</p>
+
+<h3>The whole policy fits in a table</h3>
+<p>Chapter 3 worked out that the inputs can only form 256 combinations. That means I do not have to guess what the network learned: I can run all 256 through it and look. <code>analyze.py</code> does this, and also counts how often the trained snake actually meets each input during 100 greedy games (39,238 steps).</p>
+<ul>
+<li>The snake meets <b>216</b> of the 256 inputs. The other 40 never happen in its play.</li>
+<li>The network and the rule pick the same move on <b>196</b> of the 256 inputs.</li>
+<li>Weighted by how often each input comes up, they agree on <b>93.6%</b> of the moves actually played.</li>
+</ul>
+</div>
+
+<figure class="fig" data-fig="policy">
+<span class="fig-label">FIG_020</span>
+<div class="fig-body"></div>
+<figcaption><b>All 256 inputs</b> Each row is one input pattern (danger &middot; heading &middot; food, filled dots are 1s), sorted by how often the snake meets it. Filter to the rows where the network and the rule disagree, then click a few: look at the danger dots and which way the network turns.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Where they disagree</h3>
+<p>I went through all 60 disagreements with a few lines of Python. None of them is the network making an obvious mistake:</p>
+<ul>
+<li><b>12 inputs the snake never meets.</b> There was never a training signal for them, so the network's answer is whatever its weights happen to give.</li>
+<li><b>15 trapped positions</b>, where all three danger inputs are on. Every move crashes, so the choice is meaningless. They come up 85 times in 39,238 steps: the last step of a game.</li>
+<li><b>33 positions it really plays</b>, covering 2,416 steps. These are the interesting ones.</li>
+</ul>
+<p>In <b>23</b> of those 33 there is danger on exactly one side, and in <b>all 23</b> the network turns away from the danger, where the rule goes straight or turns towards the food. Moving away from your own body keeps open space in front of you. Nobody told it that; it came out of games that ended badly. In 6 positions (181 steps) it even passes up a safe move towards the food to do it. Nine more are plain ties, two moves the rule's own criteria rate as equal, broken by list order on one side and by small Q-value differences on the other, and the last one is a simple difference of preference.</p>
+<p>This habit did not make the network beat the rule (26.4 against 27.5, within the noise of one evaluation), so it helps little, if at all. But it is a real learned behaviour, and it is the kind of thing you only find by looking.</p>
+<p>The Q-values are readable too. Across the inputs the snake meets, a move into danger averages Q = <b>&minus;10.03</b>, because the target for a crash is exactly &minus;10 with no future. Safe moves average <b>+4.3</b>: some mix of "food soon" and "a crash, eventually".</p>
+
+<h3>Why this is the most important result</h3>
+<p>It explains the ceiling. The network is not failing to learn: it has learned essentially the best simple policy that its 11 inputs allow. More training, a bigger network, a better optimiser: chapter 12 tried all of those and they all land on the same plateau, because the same rule is the answer for all of them. To do better, the snake needs to see more.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">How do you know the agent learned something meaningful?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Three ways. First, baselines on the same boards: random scores 0.16, the network 26.4. Second, a hand-written rule using the same inputs, avoid danger and head for the food, scores 27.5, so the network matches a sensible strategy it was never told. Third, because there are only 256 possible inputs, I enumerated all of them: the network agrees with the rule on 94% of the moves it actually plays, and the disagreements are mostly ties or inputs it never encounters. So I can say concretely what it learned, and that its limit comes from the inputs.</p></div></div>
+</div>
+</div>

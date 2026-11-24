@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Replay memory and the target network · Snake NN field guide</title>
+<meta name="description" content="The two ideas that turned Q-learning into Deep Q-Networks. I built both, then switched them off to see what they were worth.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">10 &middot; Replay memory and the target network</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 10</span>
+<h2>Replay memory and the target network</h2>
+<p class="lede">The two ideas that turned Q-learning into Deep Q-Networks. I built both, then switched them off to see what they were worth.</p>
+<div class="meta">Entry 10 &middot; snake_ai/agent.py: ReplayMemory, Agent</div>
+</header>
+<div class="prose measure">
+<h3>The problem with learning as you go</h3>
+<p>The simplest way to train is to update the network on each step as it happens. Two things go wrong when the Q-function is a neural network:</p>
+<ul>
+<li><b>Correlated data.</b> Consecutive steps are nearly the same: the snake moving along a wall produces dozens of almost identical states in a row. Gradient descent assumes samples are roughly independent. Feed it a long run of similar ones and it overfits to whatever it saw last, forgetting the rest.</li>
+<li><b>A moving target.</b> The target <span class="math">y = r + &gamma; max Q(s&prime;, a&prime;)</span> uses the same network we are updating. Every step changes the network, which changes the target, which we then chase. It can feed back on itself and oscillate or diverge.</li>
+</ul>
+<p>The 2015 DQN paper from DeepMind, which learned Atari games from pixels, added one fix for each.</p>
+
+<h3>Replay memory</h3>
+<p>Store every transition <span class="math">(s, a, r, s&prime;, terminal)</span> in a big buffer, and train on random batches from it. A random batch mixes steps from many moments and many games, which breaks the correlation. It also reuses each transition many times instead of once, which makes learning more <i>sample efficient</i>.</p>
+<p>My buffer is a <b>ring buffer</b>: five NumPy arrays allocated once at full size (100,000 rows), a write position <code>pos</code> and a count <code>size</code>. Each push writes at <code>pos</code> and advances it with <code>(pos + 1) % capacity</code>, so once full, the oldest transition is overwritten. Nothing is ever appended or shifted, and sampling is one fancy-indexing call per array. Learning waits until 1,000 transitions are stored, so the first batches are not 64 copies of the first few steps.</p>
+</div>
+
+<figure class="fig" data-fig="replay">
+<span class="fig-label">FIG_013</span>
+<div class="fig-body"></div>
+<figcaption><b>A ring buffer of ten</b> Push steps until the memory is full, then keep pushing and watch the oldest one get overwritten. Sample a batch to see which slots a random draw picks.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Target network</h3>
+<p>Keep a second copy of the network, the <b>target network</b>, and use it only to compute <span class="math">max Q(s&prime;, a&prime;)</span> in the targets. Do not train it. Every 500 updates, copy the online network's weights into it. Between copies, the targets stay still, so each stretch of training is an ordinary regression problem with fixed labels.</p>
+<pre>if cfg.target_sync &gt; 0 and self.updates % cfg.target_sync == 0:
+    self.target.load_state(self.net.params)</pre>
+<p><code>load_state</code> copies values into the target's existing arrays. It must be a copy: if the target simply pointed at the online network's arrays, it would change with every update and the whole idea would silently disappear. <code>test_target_network_syncs</code> checks that the two differ after 4 updates and are equal after the 5th, with <code>target_sync=5</code>. The main run made about 98,000 updates, so the target was refreshed about 196 times.</p>
+
+<h3>Were they worth it?</h3>
+<p>I trained four versions for 400 games, 5 seeds each: both tricks, no target network (<code>target_sync=0</code>, the target is the online network), no replay (a memory of 1 and a batch of 1, so each step is used once, immediately), and neither.</p>
+</div>
+
+<figure class="fig" data-fig="curves_stability">
+<span class="fig-label">FIG_014</span>
+<div class="fig-body"></div>
+<figcaption><b>Switching the tricks off</b> Average of 5 seeds per line. Compare where each curve rises with where it ends. Hover for values.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p>The honest result: <b>on this problem, neither trick changes the final score</b>. All four versions finish between 25 and 28.5 in evaluation, and the differences are smaller than the spread between seeds. What replay does change is speed: without it, the curve rises about 40 games later, because each transition is used once and then discarded, instead of about 64 times on average (98,000 updates instead of roughly 64 times.times; 64 samples, spread over 99,000 stored transitions).</p>
+<p>I think the reason is, again, the 256 inputs. The instabilities that replay and target networks fix come from many similar-looking states sharing weights, so that an update for one state drags the values of others around. With 256 distinct, discrete inputs and a network that can easily represent all of them, there is little interference to fight. On pixels, where neighbouring states really are almost identical, the original paper found both tricks essential. I kept both in the default: they cost almost nothing, and it is the standard DQN design.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Why does DQN use experience replay and a target network?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Replay stores transitions and trains on random batches, which breaks the strong correlation between consecutive steps and reuses each experience many times. The target network is a periodically copied, frozen version of the Q-network used to compute the bootstrap targets, so the target does not shift with every gradient step, which reduces oscillation and divergence.</p><p>In my snake, I measured both. Neither changed the final score beyond seed noise, because the state space is tiny, but without replay learning took about 40 more games. I would expect both to matter much more with high-dimensional inputs like pixels.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="exploration.html">&larr; 09 &middot; Explore, then exploit</a><a href="training.html">11 &middot; The first run took 12 seconds &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

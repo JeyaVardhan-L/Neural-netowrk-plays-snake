@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bugs, gaps and the ceiling · Snake NN field guide</title>
+<meta name="description" content="Every game ends the same way: the snake walks into a pocket of its own body that it had no way to see. Here is that, plus every bug I hit along the way.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23fafafa'/%3E%3Crect x='2' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='6' y='7' width='4' height='4' fill='%235a74ff'/%3E%3Crect x='10' y='7' width='4' height='4' fill='%232b4cf2'/%3E%3Ccircle cx='12' cy='3.5' r='1.6' fill='%23111113'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+<a class="brand" href="index.html">Snake NN <span>/ field guide</span></a>
+<nav class="nav" aria-label="Site">
+<a href="index.html#contents">Contents</a>
+<a href="source.html">Source</a>
+<a href="questions.html">Questions</a>
+<a class="hide-sm" href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a>
+</nav>
+</div></header>
+<main class="page">
+<div class="divider first">14 &middot; Bugs, gaps and the ceiling</div>
+<header class="chapter-head measure">
+<span class="num">Chapter 14</span>
+<h2>Bugs, gaps and the ceiling</h2>
+<p class="lede">Every game ends the same way: the snake walks into a pocket of its own body that it had no way to see. Here is that, plus every bug I hit along the way.</p>
+<div class="meta">Entry 14 &middot; what is broken, what is missing, what I would do next</div>
+</header>
+<div class="prose measure">
+<h3>How it dies</h3>
+<p>All 100 evaluation games end with the snake hitting its own body. None hit a wall and none time out. To see why, I took a real game played by the trained model (seed 6, score 28) and kept its last 37 frames. For each frame the figure also computes something the network never sees: how many free cells the head could still reach after each of the three moves, by flood fill.</p>
+</div>
+
+<figure class="fig" data-fig="death">
+<span class="fig-label">FIG_021</span>
+<div class="fig-body"></div>
+<figcaption><b>A real death, frame by frame</b> Jump to the fatal move and compare the free space behind each turn with the network's Q-values for them. Then step forward to the crash.</figcaption>
+</figure>
+
+<div class="prose measure">
+<p>Frame 34 is the whole problem in one picture. There is danger ahead, so the choice is right or left. Turning right leads to <b>354</b> free cells. Turning left leads to <b>1</b>. To the network the two moves look almost the same: Q = 2.16 for right and 2.21 for left, a difference of 0.06. Its inputs say the same thing about both sides, "no danger", and the only input that separates them is the direction of the food. It turns left, into a pocket, and crashes three moves later.</p>
+<p>I checked whether this one game is typical. Measuring all 100 evaluation games the same way, the snake is trapped (it can reach fewer free cells than its own length) a median of about 4 steps before it crashes, between 1 and 20. During those last steps a danger input is usually on, because the snake is sliding along its own body. But a danger input only ever says "this one cell is blocked". It never says "this side is a dead end", and that is the information the decision needed.</p>
+<p>This is the ceiling from chapters 12 and 13, seen up close. A policy that only knows about the three neighbouring cells cannot tell an open field from a pocket. No amount of training fixes that. It is a property of the inputs, not of the learning.</p>
+
+<h3>The bug and fix ledger</h3>
+<p>Everything that went wrong while I built this, in order. I kept it because the mistakes taught me as much as the parts that worked.</p>
+</div>
+
+<div class="measure">
+<ul class="ledger">
+<li><span class="lab fixed">fixed</span><div><b>No pip on the system Python.</b> Ubuntu's Python 3.14 has no <code>pip</code> or <code>ensurepip</code>, so <code>python3 -m venv</code> failed. Created the venv with <code>--without-pip</code> and bootstrapped pip into it (chapter 1).</div></li>
+<li><span class="lab fixed">fixed</span><div><b>Working out why a game ended, after the fact.</b> My first evaluation code reconstructed the end reason from the final position. It was fragile: it had to recheck walls, bodies and the time-out counter, in the right order. I replaced it with <code>game.end_reason</code>, set at the exact line where the game ends.</div></li>
+<li><span class="lab fixed">fixed</span><div><b>A misleading median.</b> <code>train.py</code> printed the median with <code>:.0f</code>, so 25.5 showed as "26", and I copied "26" into a commit message before noticing. Now it prints one decimal. The commit message still says 26; the real median is 25.5.</div></li>
+<li><span class="lab fixed">fixed</span><div><b>An f-string that only parsed on Python 3.12+.</b> I wrote <code>f"{stats["median"]}"</code>, with double quotes inside double quotes. That is legal since 3.12 but a syntax error before it. Switched to single quotes inside; CI now tests 3.10 to 3.13.</div></li>
+<li><span class="lab fixed">fixed</span><div><b>Overclaiming in my own journal.</b> I first wrote that &gamma; = 0 agents "wander and occasionally eat", and that the network "always turns away from danger". I also wrote that the snake is typically doomed many steps before it dies while all its danger inputs read 0. All three were guesses. Re-running and counting showed: four of five &gamma; = 0 seeds circle until they time out; the turn-away habit holds in all 23 disagreements with one-sided danger but not in every such position; and the snake is trapped a median of about 4 steps before the crash, usually with a danger input on. The text now says exactly that. Lesson: measure before you explain.</div></li>
+<li><span class="lab fixed">fixed</span><div><b>Figures that could not light up.</b> In the guide, I set SVG <code>fill</code> attributes on circles that also had a CSS class. A CSS rule beats a presentation attribute, so the nodes would never have changed colour. Caught on review; fixed by setting <code>style.fill</code>.</div></li>
+<li><span class="lab fixed">fixed</span><div><b>Overlapping chart labels.</b> The README charts first had end labels on top of each other and two grey lines that looked identical. Added label spreading and different dash patterns.</div></li>
+<li><span class="lab gap">gap</span><div><b>The time-out is not Markov.</b> The snake cannot see how long it has gone without food, so from its point of view the time-out is random. I treat it as truncation (not terminal, reward 0) so it does not poison the values, but a cleaner design would add "steps since food" to the inputs or remove the limit once the agent is trained.</div></li>
+<li><span class="lab gap">gap</span><div><b>Max overestimation.</b> The target takes a <code>max</code> over noisy Q estimates, which is biased upwards. Double DQN fixes this by choosing the action with the online network and evaluating it with the target network. I did not implement it.</div></li>
+<li><span class="lab gap">gap</span><div><b>Evaluation noise.</b> One 100-game evaluation of one model moves by a couple of apples depending on the board seed (26.43 and 28.46 for the same model). The comparisons in this guide use 5 seeds, but some reported differences (&gamma; = 0.5, lr 0.0001) are still unproven.</div></li>
+<li><span class="lab risk">risk</span><div><b>Other machines give slightly different numbers.</b> The run is deterministic on my machine. NumPy builds with different maths libraries can differ in the last bits of a float, which can change a tie somewhere and send the run down a different path. Expect the same range, not the same digits.</div></li>
+</ul>
+</div>
+
+<div class="prose measure">
+<h3>What I would do next</h3>
+<p>In order of how much I think each would help:</p>
+<ol>
+<li><b>Let it see space.</b> Add, for each of the three moves, the number of cells reachable after taking it (the flood fill from the figure above), scaled by the snake's length. This directly targets the failure in every game.</li>
+<li><b>Let it see its tail.</b> Add the direction to the tail. Following your own tail is the classic safe strategy for a long snake.</li>
+<li><b>A local view.</b> Replace the danger bits with a small window of cells around the head, say 7 &times; 7. The network would need more hidden units and more games, but would no longer depend on my hand-picked features.</li>
+<li><b>The whole board with a CNN.</b> The general solution, and a much bigger project.</li>
+<li><b>Double DQN</b> and a <b>Huber loss</b> (squared error for small errors, linear for big ones), which make bigger versions of this more stable.</li>
+</ol>
+<p>The first one is maybe 20 lines in <code>get_state</code>, plus changing the input size from 11. If you are using this guide to build your own, that is the first experiment I would try.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">What are the limitations of your agent, and how would you improve it?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Its inputs only describe the three cells next to the head, so it cannot see when a turn leads into a pocket of its own body. Every evaluation game ends in a body collision, and in replays the snake is doomed several moves before any danger input lights up. My ablations confirmed the ceiling is the representation: very different learners all plateau around 25 to 30.</p><p>The first fix is in the inputs, not the network: add the reachable free space for each move, and the direction of the tail. After that, a local grid view or a CNN on the full board, and algorithm upgrades like Double DQN and a Huber loss.</p></div></div>
+</div>
+</div>
+<nav class="pager measure" aria-label="Chapters"><a href="inside.html">&larr; 13 &middot; Looking inside: it learned the rule</a><a href="rebuild.html">15 &middot; Rebuild it from zero &rarr;</a></nav>
+</main>
+<div class="page"><footer class="footer">
+<span>Neural network that plays Snake &middot; JeyaVardhan L &middot; MIT licence</span>
+<span><a href="index.html#contents">Contents</a><a href="source.html">Source</a><a href="questions.html">Questions</a><a href="https://github.com/JeyaVardhan-L/Neural-netowrk-plays-snake">GitHub</a></span>
+</footer></div>
+<script src="assets/data.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/figures.js"></script>
+</body>
+</html>

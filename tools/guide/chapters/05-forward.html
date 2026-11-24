@@ -1,0 +1,53 @@
+title: The forward pass
+lede: Sixty-four neurons at once is a matrix multiply. The whole network is three lines of NumPy, and the shapes tell you almost everything.
+meta: Entry 05 &middot; snake_ai/network.py: QNetwork.forward, __init__
+hint: matrices
+---
+<div class="prose measure">
+<h3>From one neuron to a layer</h3>
+<p>A layer is many neurons reading the same inputs. Neuron <span class="math">j</span> has its own weights, one per input. Stack those weight columns side by side and you get a matrix <code>W1</code> of shape 11 &times; 64: row <span class="math">i</span> is input <span class="math">i</span>, column <span class="math">j</span> is neuron <span class="math">j</span>. Then all 64 weighted sums at once are one matrix product:</p>
+</div>
+
+<div class="measure excerpt">
+<div class="head"><span>snake_ai/network.py</span><a class="srclink" href="source.html#snake_ai/network.py@def forward">forward</a></div>
+<pre>z1 = x @ self.W1 + self.b1      # (n, 11) @ (11, 64) + (64,) -> (n, 64)
+h = np.maximum(0.0, z1)         # ReLU, same shape
+q = h @ self.W2 + self.b2       # (n, 64) @ (64, 3) + (3,)  -> (n, 3)
+return q, (x, h)</pre>
+</div>
+
+<div class="prose measure">
+<p>That is the whole network. <code>@</code> is matrix multiplication. The bias <code>b1</code> has shape (64,), and NumPy <i>broadcasts</i> it: adds it to every row. The output layer has no activation, because a Q-value is a guess of future reward, which can be any number, positive or negative.</p>
+
+<h3>Batches for free</h3>
+<p>The first dimension, <span class="math">n</span>, is the <i>batch</i>. Nothing in those three lines cares whether <span class="math">n</span> is 1 or 64. When the agent plays, it passes one state and gets three numbers. When it learns, it passes 64 remembered states and gets a 64 &times; 3 block of Q-values, in one call. Doing 64 at once is much faster than a Python loop, because the loop runs inside NumPy's compiled code.</p>
+<p>The function also returns a <i>cache</i>: the input <code>x</code> and the hidden activations <code>h</code>. Backpropagation needs both (chapter 6), and keeping them saves recomputing the forward pass.</p>
+
+<h3>Counting parameters</h3>
+<p><code>W1</code> has 11 &times; 64 = 704 numbers, <code>b1</code> 64, <code>W2</code> 64 &times; 3 = 192, <code>b2</code> 3. Total <b>963</b>. A test checks this exact number. That is tiny: the PNG of the training curve is 70 KB, the trained model file 10 KB.</p>
+</div>
+
+<figure class="fig" data-fig="forward">
+<span class="fig-label">FIG_006</span>
+<div class="fig-body"></div>
+<figcaption><b>The trained network, by hand</b> These are the real trained weights. Flip any input and the 64 hidden units and the three Q-values update. Try <em>wall ahead, food left</em>, then turn off the danger and watch straight become the favourite again.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Starting weights</h3>
+<p>Weights cannot all start at zero. Every hidden neuron would compute the same thing and get the same gradient, and they would stay identical forever. Random starting values break that symmetry. But the size of those values matters.</p>
+<p>If the weights are too large, values grow layer by layer and the first Q-values are huge, so the first errors and updates are huge. If they are too small, the signal fades. <b>He initialisation</b> picks the spread so the signal keeps about the same size through a ReLU layer: a normal distribution with variance <span class="math">2 / fan_in</span>, where <i>fan_in</i> is the number of inputs to the layer. The 2 is there because ReLU zeroes about half its inputs, which halves the variance; the 2 puts it back. For the linear output layer I use variance <span class="math">1 / fan_in</span>, since there is no ReLU after it.</p>
+<pre>self.W1 = rng.normal(0.0, np.sqrt(2.0 / n_inputs), size=(n_inputs, n_hidden))
+self.b1 = np.zeros(n_hidden)
+self.W2 = rng.normal(0.0, np.sqrt(1.0 / n_hidden), size=(n_hidden, n_outputs))
+self.b2 = np.zeros(n_outputs)</pre>
+<p>Biases can start at zero: the random weights already make the neurons different.</p>
+
+<h3>Saving and loading</h3>
+<p><code>save()</code> writes the four arrays to a <code>.npz</code> file (NumPy's zip of arrays) with the training config as JSON next to them, and <code>load()</code> reads the shapes back from the arrays, so a model with 16 hidden units loads without being told. The guide uses the same file: <code>tools/guide/export_data.py</code> copies the weights into the page, and the page runs this exact forward pass in JavaScript. A self-test checks that the browser and Python give identical Q-values on 60 positions and play the same 259-step game move for move.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">How did you initialise the weights, and why does it matter?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Random normal with He scaling, standard deviation <code>sqrt(2 / fan_in)</code> for the ReLU layer and <code>sqrt(1 / fan_in)</code> for the linear output, biases at zero. Random breaks the symmetry; if all weights were equal, all hidden units would learn the same thing. The scale keeps activations about the same size from layer to layer, so the first Q-values and gradients are reasonable instead of exploding or vanishing. The factor 2 compensates for ReLU zeroing about half its inputs.</p></div></div>
+</div>
+</div>

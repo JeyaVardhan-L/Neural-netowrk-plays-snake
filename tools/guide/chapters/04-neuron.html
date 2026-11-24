@@ -1,0 +1,41 @@
+title: One neuron
+lede: A neuron multiplies, adds and then clips at zero. The clipping looks like a detail; without it, this snake provably cannot learn to play.
+meta: Entry 04 &middot; the first line of snake_ai/network.py
+hint: neurons, ReLU
+---
+<div class="prose measure">
+<h3>Multiply, add, clip</h3>
+<p>A neuron takes some inputs <span class="math">x<sub>1</sub>, x<sub>2</sub>, &hellip;</span>, multiplies each by a <i>weight</i>, adds them up, adds a <i>bias</i>, and passes the result through an <i>activation function</i>:</p>
+<span class="eq">z = w<sub>1</sub>x<sub>1</sub> + w<sub>2</sub>x<sub>2</sub> + w<sub>3</sub>x<sub>3</sub> + b &nbsp;&nbsp;&nbsp;&nbsp; h = max(0, z)</span>
+<p>The weights say how much each input matters and in which direction. A negative weight on "danger ahead" means danger pushes this neuron down. The bias is a threshold: how much evidence the neuron needs before it says anything. <span class="math">max(0, z)</span> is called <b>ReLU</b>, the rectified linear unit. Positive values pass through unchanged, negative values become 0.</p>
+<p>Training never changes the inputs or the formula. It only changes the weights and biases. "Learning" means finding numbers for those.</p>
+</div>
+
+<figure class="fig" data-fig="neuron">
+<span class="fig-label">FIG_005</span>
+<div class="fig-body"></div>
+<figcaption><b>One neuron</b> Switch the inputs on and off and drag the weights and the bias. Line thickness is the size of a weight; grey lines are negative. Find a setting where the neuron fires only when the food is to the right and there is no danger ahead.</figcaption>
+</figure>
+
+<div class="prose measure">
+<h3>Why the clip matters: a proof with a snake</h3>
+<p>Take ReLU out and every layer is a matrix multiply plus a constant. Two of those in a row are still one matrix multiply plus a constant: <span class="math">(xA + a)B + b = x(AB) + (aB + b)</span>. However many layers you stack, without a nonlinearity the network is a <i>linear model</i>: each input adds a fixed amount to each Q-value, whatever the other inputs are.</p>
+<p>Here is a situation this snake meets constantly. The food is up. If the snake is heading right, the correct move is to turn <b>left</b>. If it is heading left, the correct move is to turn <b>right</b>. Same input switched on, opposite answers, depending on another input.</p>
+<p>Can a linear model do that? Look at the difference between the left and right Q-values, which is also linear: some number <span class="math">a</span> for "food up", <span class="math">b</span> for "food down", <span class="math">c</span> for "heading right", <span class="math">d</span> for "heading left", plus a constant <span class="math">e</span>. With no danger around and the food straight up or straight down, we need:</p>
+<ul>
+<li>heading right, food up: prefer left, so <span class="math">c + a + e &gt; 0</span></li>
+<li>heading left, food down: prefer left, so <span class="math">d + b + e &gt; 0</span></li>
+<li>heading left, food up: prefer right, so <span class="math">d + a + e &lt; 0</span></li>
+<li>heading right, food down: prefer right, so <span class="math">c + b + e &lt; 0</span></li>
+</ul>
+<p>Add the first two lines: <span class="math">a + b + c + d + 2e &gt; 0</span>. Add the last two: <span class="math">a + b + c + d + 2e &lt; 0</span>. Both cannot be true. <b>No linear model can steer this snake towards food</b>, whatever its weights. This is the same shape of problem as the famous XOR example: the answer depends on a combination of inputs, not on any one of them.</p>
+<p>A hidden layer with ReLU fixes it. One hidden neuron can learn to fire only for "heading right and food up", another only for "heading left and food up", and the output layer gives each its own vote. That is why the network has a hidden layer at all, and why chapter 12 found that 4 hidden neurons are not enough: there are too many combinations to cover.</p>
+
+<h3>Why ReLU and not something else</h3>
+<p>Older networks used the sigmoid, <span class="math">1 / (1 + e<sup>&minus;z</sup>)</span>, which squashes everything into 0 to 1. Its slope is at most 0.25 and almost 0 for large inputs, so gradients shrink as they pass back through layers. ReLU's slope is exactly 1 when the neuron is on and 0 when it is off. It is cheap, it does not shrink gradients, and its derivative is one line of code: <code>(h &gt; 0)</code>. The downside is that a neuron whose <span class="math">z</span> is negative for every input never gets a gradient again: a <i>dead</i> ReLU. With 64 units and only 256 possible inputs, losing a few does not hurt here.</p>
+
+<div class="qa">
+<div class="row"><span class="lab">IN:</span><span class="q">Why does a neural network need a nonlinear activation?</span></div>
+<div class="row"><span class="lab">OUT:</span><div class="a"><p>Without it, any stack of layers collapses into a single linear function, so depth adds nothing. In my snake, "food up" means turn left when heading right and turn right when heading left. A linear model gives "food up" one fixed weight per action, and I can show the four required inequalities contradict each other. A hidden ReLU layer lets individual neurons respond to combinations like "heading right and food up", which is exactly what the policy needs.</p></div></div>
+</div>
+</div>
