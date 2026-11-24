@@ -1,0 +1,481 @@
+{
+  "variants": {
+    "baseline": {
+      "changes": {},
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 24.4,
+      "last100_std": 0.75,
+      "eval_mean": 27.01,
+      "eval_std": 3.09,
+      "eval_per_seed": [
+        28.46,
+        25.08,
+        32.4,
+        23.89,
+        25.2
+      ],
+      "eval_best_game": 66,
+      "seconds_per_run": 26.0
+    },
+    "long_2000": {
+      "changes": {},
+      "games": 2000,
+      "seeds": 5,
+      "last100_mean": 23.97,
+      "last100_std": 1.27,
+      "eval_mean": 28.41,
+      "eval_std": 1.37,
+      "eval_per_seed": [
+        27.16,
+        30.04,
+        29.5,
+        26.47,
+        28.88
+      ],
+      "eval_best_game": 64,
+      "seconds_per_run": 209.6
+    },
+    "no_target": {
+      "changes": {
+        "target_sync": 0
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.68,
+      "last100_std": 0.68,
+      "eval_mean": 28.52,
+      "eval_std": 1.18,
+      "eval_per_seed": [
+        28.82,
+        28.61,
+        26.28,
+        29.62,
+        29.29
+      ],
+      "eval_best_game": 63,
+      "seconds_per_run": 24.0
+    },
+    "no_replay": {
+      "changes": {
+        "memory": 1,
+        "batch_size": 1,
+        "learn_start": 1
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 24.05,
+      "last100_std": 0.65,
+      "eval_mean": 26.58,
+      "eval_std": 1.71,
+      "eval_per_seed": [
+        27.75,
+        28.04,
+        23.29,
+        27.0,
+        26.81
+      ],
+      "eval_best_game": 59,
+      "seconds_per_run": 21.1
+    },
+    "no_replay_no_target": {
+      "changes": {
+        "memory": 1,
+        "batch_size": 1,
+        "learn_start": 1,
+        "target_sync": 0
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 24.5,
+      "last100_std": 0.87,
+      "eval_mean": 25.0,
+      "eval_std": 3.99,
+      "eval_per_seed": [
+        29.23,
+        26.45,
+        27.05,
+        24.72,
+        17.55
+      ],
+      "eval_best_game": 56,
+      "seconds_per_run": 21.0
+    },
+    "gamma_0": {
+      "changes": {
+        "gamma": 0.0
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 11.13,
+      "last100_std": 0.45,
+      "eval_mean": 5.84,
+      "eval_std": 7.11,
+      "eval_per_seed": [
+        3.01,
+        1.25,
+        19.7,
+        0.33,
+        4.89
+      ],
+      "eval_best_game": 47,
+      "seconds_per_run": 31.3
+    },
+    "gamma_0.5": {
+      "changes": {
+        "gamma": 0.5
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 22.01,
+      "last100_std": 0.85,
+      "eval_mean": 30.92,
+      "eval_std": 1.9,
+      "eval_per_seed": [
+        30.29,
+        32.51,
+        27.82,
+        30.75,
+        33.25
+      ],
+      "eval_best_game": 70,
+      "seconds_per_run": 29.8
+    },
+    "gamma_0.99": {
+      "changes": {
+        "gamma": 0.99
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.94,
+      "last100_std": 1.18,
+      "eval_mean": 26.61,
+      "eval_std": 1.4,
+      "eval_per_seed": [
+        24.31,
+        28.11,
+        26.35,
+        28.04,
+        26.24
+      ],
+      "eval_best_game": 55,
+      "seconds_per_run": 29.8
+    },
+    "hidden_4": {
+      "changes": {
+        "hidden": 4
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 3.59,
+      "last100_std": 2.35,
+      "eval_mean": 1.2,
+      "eval_std": 1.45,
+      "eval_per_seed": [
+        1.42,
+        0.37,
+        0.18,
+        3.95,
+        0.09
+      ],
+      "eval_best_game": 36,
+      "seconds_per_run": 24.1
+    },
+    "hidden_16": {
+      "changes": {
+        "hidden": 16
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.58,
+      "last100_std": 1.65,
+      "eval_mean": 27.66,
+      "eval_std": 1.02,
+      "eval_per_seed": [
+        28.2,
+        28.77,
+        25.82,
+        28.12,
+        27.39
+      ],
+      "eval_best_game": 64,
+      "seconds_per_run": 25.3
+    },
+    "hidden_256": {
+      "changes": {
+        "hidden": 256
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.42,
+      "last100_std": 0.6,
+      "eval_mean": 26.28,
+      "eval_std": 3.26,
+      "eval_per_seed": [
+        20.81,
+        25.4,
+        27.77,
+        30.74,
+        26.7
+      ],
+      "eval_best_game": 60,
+      "seconds_per_run": 52.5
+    },
+    "lr_1e-4": {
+      "changes": {
+        "lr": 0.0001
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 25.69,
+      "last100_std": 0.78,
+      "eval_mean": 29.43,
+      "eval_std": 2.27,
+      "eval_per_seed": [
+        28.82,
+        27.76,
+        32.06,
+        26.46,
+        32.07
+      ],
+      "eval_best_game": 62,
+      "seconds_per_run": 38.1
+    },
+    "lr_1e-2": {
+      "changes": {
+        "lr": 0.01
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.01,
+      "last100_std": 0.98,
+      "eval_mean": 27.15,
+      "eval_std": 1.75,
+      "eval_per_seed": [
+        28.96,
+        29.13,
+        26.98,
+        26.24,
+        24.46
+      ],
+      "eval_best_game": 57,
+      "seconds_per_run": 30.1
+    },
+    "sgd_1e-3": {
+      "changes": {
+        "optimizer": "sgd",
+        "lr": 0.001
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.87,
+      "last100_std": 0.92,
+      "eval_mean": 27.67,
+      "eval_std": 2.37,
+      "eval_per_seed": [
+        23.76,
+        30.85,
+        26.97,
+        27.63,
+        29.13
+      ],
+      "eval_best_game": 56,
+      "seconds_per_run": 28.5
+    },
+    "sgd_1e-2": {
+      "changes": {
+        "optimizer": "sgd",
+        "lr": 0.01
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.8,
+      "last100_std": 1.31,
+      "eval_mean": 28.38,
+      "eval_std": 2.48,
+      "eval_per_seed": [
+        29.62,
+        29.67,
+        26.77,
+        31.41,
+        24.41
+      ],
+      "eval_best_game": 56,
+      "seconds_per_run": 22.7
+    },
+    "eps_none": {
+      "changes": {
+        "eps_decay_games": 0
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.45,
+      "last100_std": 0.75,
+      "eval_mean": 26.63,
+      "eval_std": 3.18,
+      "eval_per_seed": [
+        24.86,
+        25.79,
+        32.91,
+        25.39,
+        24.2
+      ],
+      "eval_best_game": 59,
+      "seconds_per_run": 39.2
+    },
+    "eps_50": {
+      "changes": {
+        "eps_decay_games": 50
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.51,
+      "last100_std": 1.21,
+      "eval_mean": 27.35,
+      "eval_std": 2.08,
+      "eval_per_seed": [
+        24.13,
+        28.87,
+        29.96,
+        27.84,
+        25.94
+      ],
+      "eval_best_game": 60,
+      "seconds_per_run": 41.6
+    },
+    "eps_300": {
+      "changes": {
+        "eps_decay_games": 300
+      },
+      "games": 400,
+      "seeds": 5,
+      "last100_mean": 23.84,
+      "last100_std": 0.82,
+      "eval_mean": 29.9,
+      "eval_std": 2.23,
+      "eval_per_seed": [
+        28.28,
+        29.33,
+        30.48,
+        27.54,
+        33.89
+      ],
+      "eval_best_game": 58,
+      "seconds_per_run": 16.4
+    }
+  },
+  "groups": {
+    "baseline": [
+      [
+        "baseline",
+        "baseline"
+      ]
+    ],
+    "long": [
+      [
+        "long_2000",
+        "2000 games"
+      ]
+    ],
+    "stability": [
+      [
+        "baseline",
+        "replay + target"
+      ],
+      [
+        "no_target",
+        "no target network"
+      ],
+      [
+        "no_replay",
+        "no replay memory"
+      ],
+      [
+        "no_replay_no_target",
+        "neither"
+      ]
+    ],
+    "gamma": [
+      [
+        "gamma_0",
+        "gamma 0"
+      ],
+      [
+        "gamma_0.5",
+        "gamma 0.5"
+      ],
+      [
+        "baseline",
+        "gamma 0.9"
+      ],
+      [
+        "gamma_0.99",
+        "gamma 0.99"
+      ]
+    ],
+    "hidden": [
+      [
+        "hidden_4",
+        "4 hidden"
+      ],
+      [
+        "hidden_16",
+        "16 hidden"
+      ],
+      [
+        "baseline",
+        "64 hidden"
+      ],
+      [
+        "hidden_256",
+        "256 hidden"
+      ]
+    ],
+    "lr": [
+      [
+        "lr_1e-4",
+        "lr 0.0001"
+      ],
+      [
+        "baseline",
+        "lr 0.001"
+      ],
+      [
+        "lr_1e-2",
+        "lr 0.01"
+      ]
+    ],
+    "optimizer": [
+      [
+        "baseline",
+        "Adam, lr 0.001"
+      ],
+      [
+        "sgd_1e-3",
+        "SGD, lr 0.001"
+      ],
+      [
+        "sgd_1e-2",
+        "SGD, lr 0.01"
+      ]
+    ],
+    "epsilon": [
+      [
+        "eps_none",
+        "no decay (always 0.01)"
+      ],
+      [
+        "eps_50",
+        "decay over 50"
+      ],
+      [
+        "baseline",
+        "decay over 150"
+      ],
+      [
+        "eps_300",
+        "decay over 300"
+      ]
+    ]
+  }
+}
