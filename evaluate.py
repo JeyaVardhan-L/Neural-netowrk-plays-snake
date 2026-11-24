@@ -29,7 +29,7 @@ def main() -> None:
     scores = np.array(stats["scores"])
     print(f"model:   {'untrained network' if args.random else args.model}")
     print(f"games:   {stats['games']} on a {args.board}x{args.board} board, epsilon = 0")
-    print(f"score:   mean {stats['mean']:.2f}  median {stats['median']:.0f}  "
+    print(f"score:   mean {stats['mean']:.2f}  median {stats['median']:.1f}  "
           f"std {stats['std']:.2f}  min {stats['min']}  max {stats['max']}")
     print(f"steps:   mean {stats['mean_steps']:.0f} per game")
     print(f"ended:   {stats['end_reasons']}")

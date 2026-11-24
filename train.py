@@ -57,7 +57,7 @@ def main() -> None:
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(f"\ngreedy evaluation over {stats['games']} games: mean {stats['mean']:.2f}, "
-          f"median {stats['median']:.0f}, max {stats['max']}, ends {stats['end_reasons']}")
+          f"median {stats['median']:.1f}, max {stats['max']}, ends {stats['end_reasons']}")
     print(f"saved {out / 'model.npz'}" + (f" and {args.save_model}" if args.save_model else ""))
 
 
