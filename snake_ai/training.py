@@ -87,27 +87,39 @@ def train(cfg: Config, games: int, seed: int = 0, log_path=None, model_path=None
     return agent, history
 
 
-def play_greedy(net: QNetwork, game: SnakeGame):
-    """Play one game with epsilon = 0. Yields the game after every step."""
+def greedy_policy(net: QNetwork):
+    """Turn a network into a policy: state in, the move with the highest Q-value out."""
+    return lambda state: int(np.argmax(net.predict(state)))
+
+
+def play_greedy(policy, game: SnakeGame):
+    """Play one game with no exploration. Yields the game after every step.
+
+    ``policy`` is a QNetwork or any function from a state to an action.
+    """
+    if isinstance(policy, QNetwork):
+        policy = greedy_policy(policy)
     state = game.reset()
     yield game
     while not game.done:
-        action = int(np.argmax(net.predict(state)))
-        state, _, _, _ = game.step(action)
+        state, _, _, _ = game.step(policy(state))
         yield game
 
 
-def evaluate(net: QNetwork, games: int = 100, board: int = 20, seed: int = 12345):
-    """Play ``games`` games with no exploration. Returns a dict of statistics."""
+def evaluate(policy, games: int = 100, board: int = 20, seed: int = 12345):
+    """Play ``games`` games with no exploration. Returns a dict of statistics.
+
+    ``policy`` is a QNetwork or any function from a state to an action, so the
+    same code measures the network and the baselines.
+    """
     game = SnakeGame(board, board, seed=seed)
     scores, steps, reasons = [], [], {}
     for _ in range(games):
-        for _ in play_greedy(net, game):
+        for _ in play_greedy(policy, game):
             pass
         scores.append(game.score)
         steps.append(game.steps)
-        reason = game.end_reason
-        reasons[reason] = reasons.get(reason, 0) + 1
+        reasons[game.end_reason] = reasons.get(game.end_reason, 0) + 1
     scores = np.array(scores)
     return {
         "games": games,
@@ -120,4 +132,3 @@ def evaluate(net: QNetwork, games: int = 100, board: int = 20, seed: int = 12345
         "end_reasons": reasons,
         "scores": scores.tolist(),
     }
-
